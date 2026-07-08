@@ -2,9 +2,9 @@
 
 A comprehensive quantum computing framework with modular implementations, built for researchers, educators, and quantum application developers.
 
-[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
-[![PyPI version](https://img.shields.io/pypi/v/qpiai-quantum.svg)](https://pypi.org/project/qpiai-quantum/)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![PyPI version](https://img.shields.io/pypi/v/qpiai-quantum)](https://pypi.org/project/qpiai-quantum/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/qpiai-quantum)](https://pypi.org/project/qpiai-quantum/)
+[![License](https://img.shields.io/pypi/l/qpiai-quantum)](LICENSE)
 
 ## Architecture
 
