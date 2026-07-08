@@ -15,7 +15,7 @@ from .user import set_user, get_user, clear_user, SDKUser
 class QpiAIQuantumAuth:
     @staticmethod
     def _create_user_env():
-        if os.environ.get("QPIAI_API_KEY", None) is None:
+        if os.environ.get("API_KEY", None) is None:
             raise APIKeyInvalidError()
 
     @staticmethod

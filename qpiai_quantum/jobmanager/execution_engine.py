@@ -79,6 +79,6 @@ class ExecutionEngine:
         raise ValueError(
             "API_KEY not found. Please either:\n"
             "  1. Call QpiAIQuantumAuth.login() to authenticate, or\n"
-            "  2. Set os.environ['API_KEY'] = 'your_key', or\n"
+            "  2. Add API_KEY='your_key' to qcloud.env, or\n"
             "  3. Pass access_token='your_key' as an argument"
         )

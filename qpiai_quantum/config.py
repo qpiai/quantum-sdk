@@ -14,7 +14,11 @@ import os
 try:
     from dotenv import load_dotenv
 
-    load_dotenv()
+    # Load qcloud.env if it exists, otherwise fall back to .env
+    if os.path.exists("qcloud.env"):
+        load_dotenv("qcloud.env")
+    else:
+        load_dotenv()
 except ImportError:
     # dotenv not available, but that's okay - we can still use os.getenv()
     pass

@@ -18,8 +18,8 @@ class TestClusterState(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Set up environment and load API key if available."""
-        load_dotenv()
-        cls.api_key = os.getenv("API_KEY") or os.getenv("QPIAI_API_KEY")
+        load_dotenv("qcloud.env")
+        cls.api_key = os.getenv("API_KEY")
         if cls.api_key:
             try:
                 QpiAIQuantumAuth.login(cls.api_key)
@@ -86,7 +86,7 @@ class TestClusterState(unittest.TestCase):
         self.assertEqual(gen.num_qubits, 5)
 
     @unittest.skipUnless(
-        os.getenv("API_KEY") or os.getenv("QPIAI_API_KEY"),
+        os.getenv("API_KEY"),
         "API key not found in environment",
     )
     def test_live_execution(self):
