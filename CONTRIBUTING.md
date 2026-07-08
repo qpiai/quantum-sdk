@@ -33,12 +33,12 @@ We welcome code contributions! To submit a code contribution:
 git clone https://github.com/YOUR_USERNAME/quantum-sdk.git
 cd quantum-sdk
 
-# Create a virtual environment
-python -m venv .venv
+# Create a virtual environment and install dependencies via uv
+uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Install in development mode with dev dependencies
-pip install -e ".[dev]"
+# Install main + dev dependencies
+uv sync --extra dev
 
 # Run tests
 pytest tests/ -v
