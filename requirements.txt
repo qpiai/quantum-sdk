@@ -1,5 +1,6 @@
 cvxpy
 matplotlib
+networkx
 numpy
 plotly
 requests

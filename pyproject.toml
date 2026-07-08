@@ -37,6 +37,7 @@ classifiers = [
 dependencies = [
     "cvxpy",
     "matplotlib",
+    "networkx",
     "numpy",
     "plotly",
     "requests",

@@ -18,6 +18,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from qpiai_quantum.algorithms.shor import ShorsAlgorithm
 from qpiai_quantum.algorithms.simon import SimonAlgorithm
 from qpiai_quantum.algorithms.phase_estimation import QuantumPhaseEstimation
+from qpiai_quantum.algorithms.opt.solvers.vqe import VQESolver
+from qpiai_quantum.algorithms.opt.solvers.qaoa import QAOASolver
 
 from qpiai_quantum.algorithms.qft import QFT
 from qpiai_quantum.algorithms.grover import GroverSearch
@@ -81,7 +83,29 @@ class TestAlgorithmStandardization(unittest.TestCase):
         # Ensure that build parameters like 'unitary' were NOT passed to run() as kwargs
         mock_run.assert_called_once_with(shots=1)
 
+    def test_vqe_standardization(self):
+        vqe = VQESolver(n_qubits=3, ansatz="standard")
+        self.assertIsNone(vqe.circuit)
 
+        # build_circuit should set self.circuit
+        circ = vqe.build_circuit()
+        self.assertIsNotNone(vqe.circuit)
+        self.assertIs(vqe.circuit, circ)
+
+    def test_qaoa_standardization(self):
+        # QAOA needs a problem to build the circuit
+        mock_problem = MagicMock()
+        mock_problem.n_qubits = 3
+        mock_problem.get_hamiltonian_terms.return_value = []
+
+        qaoa = QAOASolver(layers=1)
+        qaoa.problem = mock_problem
+        self.assertIsNone(qaoa.circuit)
+
+        # build_circuit should set self.circuit
+        circ = qaoa.build_circuit()
+        self.assertIsNotNone(qaoa.circuit)
+        self.assertIs(qaoa.circuit, circ)
 
     def test_qft_standardization(self):
         qft = QFT(num_qubits=3)

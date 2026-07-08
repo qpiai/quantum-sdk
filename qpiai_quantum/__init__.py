@@ -49,7 +49,8 @@ from .state_preparation import (
     WStateGenerator,
 )
 
-
+# Optimization algorithms
+from .algorithms.opt.solvers import VQESolver
 
 # Quantum information
 from .quantum_info import DensityMatrix, Statevector
@@ -84,7 +85,8 @@ __all__ = [
     "ClusterStateGenerator",
     "GHZStateGenerator",
     "WStateGenerator",
-
+    # Optimization algorithms
+    "VQESolver",
     # Quantum information
     "Statevector",
     "DensityMatrix",

@@ -7,6 +7,8 @@ from .bernstein_vazirani import BernsteinVazirani
 from .deutsch_jozsa import DeutschJozsa
 from .phase_estimation import QuantumPhaseEstimation
 from .qrng import QRNG
+from .opt.solvers import VQESolver
+from .utils.visualize import plot_vqe_results_comprehensive
 
 from .amplitude_estimation import (
     EstimationProblem,
@@ -24,6 +26,8 @@ __all__ = [
     "DeutschJozsa",
     "QuantumPhaseEstimation",
     "QRNG",
+    "VQESolver",
+    "plot_vqe_results_comprehensive",
 
     "EstimationProblem",
     "AmplitudeEstimation",
