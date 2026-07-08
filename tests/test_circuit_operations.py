@@ -299,3 +299,24 @@ def test_mcx_gate():
     assert isinstance(ops[0], MCXGate)
     assert ops[0].qubits == [0, 1, 2, 3]
 
+
+def test_local_simulator_iswap():
+    circ = Circuit(2)
+    circ.iswap(0, 1)
+    result = circ.run(device_name="QpiAI-QSV-Local", shots=100)
+    assert result is not None
+
+
+def test_local_simulator_composite_operation():
+    sub_circ = Circuit(2)
+    sub_circ.h(0)
+    sub_circ.cx(0, 1)
+
+    composite_op = sub_circ.to_circuit_operation(name="Entangler")
+
+    main_circ = Circuit(2)
+    main_circ.add_operation(composite_op)
+
+    result = main_circ.run(device_name="QpiAI-QSV-Local", shots=100)
+    assert result is not None
+

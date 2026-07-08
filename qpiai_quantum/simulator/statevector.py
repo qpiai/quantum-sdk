@@ -81,10 +81,11 @@ class StatevectorSimulator(BaseSimulator):
             _, U = gate_spec(gate_name_lower, params, num_qubits=len(qubits))
             state = self._apply_unitary(state, n_qubits, qubits, U)
 
-        # Iterate directly through the circuit's evolution list
-        for op in circuit.icr.evolve:
+        # Define internal applicator for recursive operation handling
+        def _apply_op(op) -> None:
+            nonlocal state
             if op.operation_type == OperationType.BARRIER:
-                continue
+                return
 
             elif op.operation_type == OperationType.MEASURE:
                 # Store the last measurement targeting this classical bit
@@ -99,6 +100,14 @@ class StatevectorSimulator(BaseSimulator):
             ):
                 _apply_gate(op.gate_name, op.params or [], op.qubits)
 
+            elif op.operation_type == OperationType.OPERATION:
+                # If it's a composite gate with sub-operations, apply recursively
+                if hasattr(op, "order") and op.order is not None:
+                    for sub_op in op.order:
+                        _apply_op(sub_op)
+                else:
+                    _apply_gate(op.gate_name, op.params or [], op.qubits)
+
             else:
                 # Handle reset if we eventually add it to OperationType
                 if op.gate_name.lower() == "reset" and op.qubits:
@@ -106,6 +115,10 @@ class StatevectorSimulator(BaseSimulator):
                         state = self._apply_reset(state, n_qubits, q)
                 else:
                     raise ValueError(f"Unsupported operation type: {op.operation_type}")
+
+        # Iterate directly through the circuit's evolution list
+        for op in circuit.icr.evolve:
+            _apply_op(op)
 
         # Sample measurements if requested
         if n_cbits > 0 and measure_map:
