@@ -111,7 +111,7 @@ python -c 'import qpiai_quantum; print(f"QpiAI Quantum SDK v{qpiai_quantum.__ver
 
 ### Requirements
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - Dependencies are automatically installed with pip
 
 ## Quick Start
