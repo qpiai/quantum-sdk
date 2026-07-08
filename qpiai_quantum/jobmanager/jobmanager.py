@@ -1420,7 +1420,6 @@ class JobManager:
         overwrite: bool = False,
         use_events: bool = True,
         timeout: int = 300,
-        access_token: Optional[str] = None,
     ) -> JobResult:
         """
         All-in-one QASM/Circuit submission that waits for completion and returns job results.

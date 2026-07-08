@@ -23,6 +23,7 @@ class ExecutionEngine:
         device_name: str = "QpiAI-QSV-Local",
         **kwargs,
     ) -> "JobResult":
+        from ..authentication.user import user_context
         from .jobmanager import JobManager
 
         if access_token is None:
@@ -37,25 +38,26 @@ class ExecutionEngine:
             circuit_name = (
                 f"{experiment_name}_circuit_{int(time.time())}_{uuid.uuid4().hex[:8]}"
             )
-        # print(f"Running on device '{device_name}' with method '{method}'")
-        job_manager = JobManager()
-        try:
-            result = job_manager.submit_and_wait_for_results_qasm(
-                qasm_string_or_circuit=circuit,
-                shots=shots,
-                experiment_name=experiment_name,
-                need_statevector=need_statevector,
-                need_density_matrix=need_density_matrix,
-                method=method,
-                device_name=device_name,
-                circuit_name=circuit_name,
-                use_events=True,
-                overwrite=overwrite,
-                timeout=timeout,
-            )
-        except Exception as e:
-            print(f"Error : {str(e)}")
-            raise
+
+        with user_context(access_token):
+            job_manager = JobManager()
+            try:
+                result = job_manager.submit_and_wait_for_results_qasm(
+                    qasm_string_or_circuit=circuit,
+                    shots=shots,
+                    experiment_name=experiment_name,
+                    need_statevector=need_statevector,
+                    need_density_matrix=need_density_matrix,
+                    method=method,
+                    device_name=device_name,
+                    circuit_name=circuit_name,
+                    use_events=True,
+                    overwrite=overwrite,
+                    timeout=timeout,
+                )
+            except Exception as e:
+                print(f"Error : {str(e)}")
+                raise
         return result
 
     @staticmethod
