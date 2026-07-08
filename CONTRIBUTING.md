@@ -28,17 +28,19 @@ We welcome code contributions! To submit a code contribution:
 
 #### Setting Up Development Environment
 
+This project uses `uv` for dependency and environment management to guarantee consistent developer environments via `uv.lock`. If you do not have `uv` installed, you can install it via pip (`pip install uv`) or follow the [official installation guide](https://docs.astral.sh/uv/getting-started/installation/).
+
 ```bash
 # Clone your fork
 git clone https://github.com/YOUR_USERNAME/quantum-sdk.git
 cd quantum-sdk
 
 # Create a virtual environment
-python -m venv .venv
+uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Install in development mode with dev dependencies
-pip install -e ".[dev]"
+# Install in development mode with dev dependencies from the lockfile
+uv sync --extra dev
 
 # Run tests
 pytest tests/ -v
