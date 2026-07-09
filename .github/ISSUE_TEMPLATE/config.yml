@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Support Email
+    url: mailto:support@qcloud.qpiai.tech
+    about: Email us directly for support

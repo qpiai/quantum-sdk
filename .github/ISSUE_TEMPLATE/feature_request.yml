@@ -1,0 +1,39 @@
+name: Feature Request
+description: Propose a new feature or improvement for the SDK
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        We love hearing about new feature ideas!
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of the proposed feature.
+      placeholder: Describe the feature...
+    validations:
+      required: true
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case / Problem Solved
+      description: Explain the use case or problem this feature solves.
+      placeholder: Why is this feature needed?
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-api
+    attributes:
+      label: Proposed API / Example Usage
+      description: Show an example of how you would like to use this new feature.
+      placeholder: |
+        from qpiai_quantum import Circuit
+        # ...
+      render: python
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Any relevant research papers, documentation, or references.
