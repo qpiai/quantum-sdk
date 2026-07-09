@@ -48,4 +48,5 @@ jobs:
         env:
           RUN_ALGO_CORRECTNESS: "1"
           TEST_OPTIMIZERS: "1"
+          API_KEY: ${{ secrets.API_KEY }}
         run: uv run pytest
