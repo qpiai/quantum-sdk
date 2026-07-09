@@ -319,4 +319,3 @@ def test_local_simulator_composite_operation():
 
     result = main_circ.run(device_name="QpiAI-QSV-Local", shots=100)
     assert result is not None
-

@@ -71,7 +71,9 @@ class WStateGenerator(QuantumAlgorithm):
 
         return expected
 
-    def verify_entanglement(self, result: BaseQuantumResult, threshold: float = 0.2) -> bool:
+    def verify_entanglement(
+        self, result: BaseQuantumResult, threshold: float = 0.2
+    ) -> bool:
 
         counts = result.get()["counts"]
         total_shots = sum(counts.values())

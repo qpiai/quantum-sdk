@@ -85,7 +85,6 @@ class PlotlyVisualizer:
             max_depth = max(max_depth, x_pos + 1)
             operations_with_positions.append((op, x_pos))
 
-
         # Create plotter with calculated dimensions
         plotter = Plotter(max_depth, icr.num_qubits, theme)
 

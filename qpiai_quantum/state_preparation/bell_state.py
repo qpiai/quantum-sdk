@@ -96,7 +96,9 @@ class BellStateGenerator(QuantumAlgorithm):
         }
         return outcomes[self.state_type]
 
-    def verify_entanglement(self, result: BaseQuantumResult, threshold: float = 0.4) -> bool:
+    def verify_entanglement(
+        self, result: BaseQuantumResult, threshold: float = 0.4
+    ) -> bool:
 
         counts = result.get_counts() or {}
         total_shots = sum(counts.values())

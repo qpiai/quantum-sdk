@@ -667,7 +667,9 @@ class QAOASolver(QuantumAlgorithm):
             self.problem = kwargs["problem"]
 
         if self.problem is None:
-            raise ValueError("QAOA requires a problem parameter (either in __init__ or run)")
+            raise ValueError(
+                "QAOA requires a problem parameter (either in __init__ or run)"
+            )
 
         self.shots = shots
 

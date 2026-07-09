@@ -89,7 +89,9 @@ class ClusterStateGenerator(QuantumAlgorithm):
 
         return expected
 
-    def verify_entanglement(self, result: BaseQuantumResult, threshold: float = 0.5) -> bool:
+    def verify_entanglement(
+        self, result: BaseQuantumResult, threshold: float = 0.5
+    ) -> bool:
         """
         Verify that the measurement results are consistent with a cluster state.
 

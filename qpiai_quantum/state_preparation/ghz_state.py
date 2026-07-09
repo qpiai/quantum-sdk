@@ -62,7 +62,9 @@ class GHZStateGenerator(QuantumAlgorithm):
 
         return {all_zeros: 0.5, all_ones: 0.5}
 
-    def verify_entanglement(self, result: BaseQuantumResult, threshold: float = 0.4) -> bool:
+    def verify_entanglement(
+        self, result: BaseQuantumResult, threshold: float = 0.4
+    ) -> bool:
         """
         Verify that the measurement results show GHZ entanglement.
         """

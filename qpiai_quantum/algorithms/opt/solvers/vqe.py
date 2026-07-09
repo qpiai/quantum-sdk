@@ -778,7 +778,9 @@ class VQESolver(QuantumAlgorithm):
             self.hamiltonian = kwargs["hamiltonian"]
 
         if self.hamiltonian is None:
-            raise ValueError("VQE requires a hamiltonian parameter (either in __init__ or run)")
+            raise ValueError(
+                "VQE requires a hamiltonian parameter (either in __init__ or run)"
+            )
 
         self.shots = shots
 

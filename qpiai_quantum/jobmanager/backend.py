@@ -16,9 +16,15 @@ class Backend(Enum):
         """
         mapping = {
             Backend.STATEVECTOR_SIMULATOR_CPU: ("statevector", "QpiAI-QSV-Simulator"),
-            Backend.DENSITY_MATRIX_SIMULATOR_CPU: ("density_matrix", "QpiAI-QDM-Simulator"),
+            Backend.DENSITY_MATRIX_SIMULATOR_CPU: (
+                "density_matrix",
+                "QpiAI-QDM-Simulator",
+            ),
             Backend.INDUS_QPU: ("qpu", "QpiAI-Indus-1"),
-            Backend.TENSOR_NETWORK_SIMULATOR_CPU: ("tensor_network", "QpiAI-QTN-Simulator"),
+            Backend.TENSOR_NETWORK_SIMULATOR_CPU: (
+                "tensor_network",
+                "QpiAI-QTN-Simulator",
+            ),
             Backend.LOCAL_SIMULATOR: ("statevector", "QpiAI-QSV-Local"),
         }
         return mapping.get(self, ("statevector", self.value))

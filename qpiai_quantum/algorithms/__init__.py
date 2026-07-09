@@ -28,7 +28,6 @@ __all__ = [
     "QRNG",
     "VQESolver",
     "plot_vqe_results_comprehensive",
-
     "EstimationProblem",
     "AmplitudeEstimation",
     "IterativeAmplitudeEstimation",
