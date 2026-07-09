@@ -12,7 +12,7 @@ from .base_density_matrix import BaseDensityMatrix
 
 class DensityMatrix(BaseDensityMatrix):
     """
-    The desnity matrix formalism for creating and manipulating quantum states using density matrices.
+    The density matrix formalism for creating and manipulating quantum states using density matrices.
     """
 
     def __init__(self, state: Union[List[List[complex]], np.ndarray]):
