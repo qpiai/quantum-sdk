@@ -26,6 +26,7 @@ This repository contains the **QpiAI Quantum SDK**, a comprehensive Python-based
 3. **Documentation**: Ensure docstrings are provided for public classes and methods. If modifying public APIs, consider if updates to `sdk_notebooks` are necessary.
 4. **Code Quality**: Keep code modular. Respect the existing formatting rules as defined in `pyproject.toml`.
 5. **Core Abstractions**: Be cautious when modifying core abstractions like `Circuit`, `CircuitOperation`, or simulation backends. Avoid breaking changes as many algorithms depend on these foundational classes.
+6. **Commit Message Conventions**: Always write commit messages that adhere to the Conventional Commits specification (e.g., `feat:`, `fix:`, `refactor:`, `docs:`, `test:`). Clearly describe the scope, nature of the changes, and reference any relevant issue numbers (e.g., `Closes #123`).
 
 ## Key Abstractions
 
