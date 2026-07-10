@@ -1448,7 +1448,8 @@ class JobManager:
             circuit_name (str): Circuit name (default: "circuit")
             compute_resource_id (str): Compute resource ID (optional)
             overwrite (bool): Whether to overwrite existing circuit with same name (default: False)
-            use_events (bool): Whether to use SSE for real-time status updates (default: True)
+            use_events (bool): Prefer SSE for real-time status updates, falling back to
+                               polling if SSE is disabled, unavailable, or fails (default: True)
             timeout (int): Maximum time to wait for completion in seconds (default: 300)
 
         Returns:
@@ -1470,80 +1471,86 @@ class JobManager:
             # Convert Circuit or ICR to QASM string
             qasm_string = self._convert_circuit_to_qasm(qasm_string_or_circuit)
 
-        # SSE setup
-        sse_handler = None
+        sse_handler = (
+            SSEResultHandler(device_name=device_name, timeout=timeout)
+            if use_events and SSE_AVAILABLE
+            else None
+        )
 
-        if use_events:
-            if not SSE_AVAILABLE:
-                raise RuntimeError(
-                    "SSE handler not available. Install with: pip install requests-sse"
-                )
+        submission_result = self.submit_qasm_job(
+            qasm_string=qasm_string,
+            experiment_name=experiment_name,
+            shots=shots,
+            method=method,
+            need_statevector=need_statevector,
+            need_density_matrix=need_density_matrix,
+            device_name=device_name,
+            circuit_name=circuit_name,
+            compute_resource_id=compute_resource_id,
+            overwrite=overwrite,
+        )
+        job_id = submission_result.get("job_id")
+        if not job_id:
+            raise JobSubmissionError("Job submission failed: no job ID returned")
 
-            sse_handler = SSEResultHandler(device_name=device_name, timeout=timeout)
-        try:
-            # Submit the job
-            submission_result = self.submit_qasm_job(
-                qasm_string=qasm_string,
-                experiment_name=experiment_name,
-                shots=shots,
-                method=method,
-                need_statevector=need_statevector,
-                need_density_matrix=need_density_matrix,
-                device_name=device_name,
-                circuit_name=circuit_name,
-                compute_resource_id=compute_resource_id,
-                overwrite=overwrite,
-            )
-            job_id = submission_result.get("job_id")
-            if not job_id:
-                raise JobSubmissionError("Job submission failed: no job ID returned")
-
-            # Use SSE for real-time updates
-            if use_events and sse_handler:
-                sse_url = get_sse_url(job_id)
-                headers = self._get_auth_header()
-
-                if not sse_handler.wait_for_events(sse_url, headers):
-                    # SSE failed or timed out
-                    error = sse_handler.get_error()
-                    if error:
-                        raise JobManagerError(f"SSE execution failed: {error}")
-                    raise JobManagerError(
-                        f"SSE connection timed out for job {job_id} after {timeout}s"
-                    )
+        start_time = time.time()
+        poll_interval = 2
+        if sse_handler:
+            sse_url = get_sse_url(job_id)
+            headers = self._get_auth_header()
+            if sse_handler.wait_for_events(sse_url, headers):
+                result = self.get_job_status(job_id)
             else:
-                raise ValueError("use_events must be True - SSE only mode")
+                logger.warning(
+                    "SSE monitoring failed for job %s; falling back to polling: %s",
+                    job_id,
+                    sse_handler.get_error() or "no completion event received",
+                )
+                result = self._wait_with_polling(
+                    job_id,
+                    timeout,
+                    poll_interval=poll_interval,
+                    start_time=start_time,
+                    initial_poll_count=0,
+                )["job_info"]
+        else:
+            if use_events:
+                logger.warning(
+                    "SSE support is unavailable; falling back to polling for job %s", job_id
+                )
+            result = self._wait_with_polling(
+                job_id,
+                timeout,
+                poll_interval=poll_interval,
+                start_time=start_time,
+                initial_poll_count=0,
+            )["job_info"]
 
-            # Retrieve job status after SSE completion
-            result = self.get_job_status(job_id)
-            if not result:
-                raise JobStatusError(job_id, Exception("Failed to retrieve job status"))
+        if not result:
+            raise JobStatusError(job_id, Exception("Failed to retrieve job status"))
 
-            # Parse job results using helper method
-            job_result = self._parse_job_results(
-                result,
-                circuit_name,
-                shots,
-                device_name,
-                need_statevector=need_statevector,
-                need_density_matrix=need_density_matrix,
-            )
-            # Add submission parameters to metadata
-            if job_result.job_metadata is None:
-                job_result.job_metadata = {}
-            job_result.job_metadata["submission_params"] = {
-                "shots": shots,
-                "circuit_name": circuit_name,
-                "experiment_name": experiment_name,
-                "overwrite": overwrite,
-                "use_events": use_events,
-                "timeout": timeout,
-            }
+        # Parse job results using helper method
+        job_result = self._parse_job_results(
+            result,
+            circuit_name,
+            shots,
+            device_name,
+            need_statevector=need_statevector,
+            need_density_matrix=need_density_matrix,
+        )
+        # Add submission parameters to metadata
+        if job_result.job_metadata is None:
+            job_result.job_metadata = {}
+        job_result.job_metadata["submission_params"] = {
+            "shots": shots,
+            "circuit_name": circuit_name,
+            "experiment_name": experiment_name,
+            "overwrite": overwrite,
+            "use_events": use_events,
+            "timeout": timeout,
+        }
 
-            return job_result
-
-        finally:
-            pass
+        return job_result
 
     def _wait_with_polling(
         self,
