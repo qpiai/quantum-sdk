@@ -44,7 +44,6 @@ dependencies = [
     "scipy",
     "requests-sse",
     "python-dotenv",
-    "ipykernel",
 ]
 
 [project.urls]
@@ -65,6 +64,7 @@ dev = [
     "codespell",
     "pip-audit",
     "twine",
+    "ipykernel",
 ]
 docs = [
     "sphinx",
