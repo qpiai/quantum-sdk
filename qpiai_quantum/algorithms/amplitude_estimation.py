@@ -76,12 +76,12 @@ class AmplitudeEstimation(QuantumAlgorithm):
     """
     Canonical Quantum Amplitude Estimation (QAE) — **not yet implemented**.
 
-    This class is a stub.  Canonical QAE requires constructing controlled
-    Grover operators, which in turn need a general controlled-subcircuit
-    compiler not yet available in the SDK.
+    The canonical QPE-based variant is not yet available.  Canonical QAE
+    requires constructing controlled Grover operators, which in turn need
+    a general controlled-subcircuit compiler not yet present in the SDK.
 
-    Use :class:`IterativeAmplitudeEstimation` instead, which provides the
-    same estimation capability without QPE and is fully functional.
+    Use :class:`IterativeAmplitudeEstimation` for currently supported
+    amplitude estimation workflows.
     """
 
     def __init__(self, num_evaluation_qubits: int):

@@ -193,9 +193,10 @@ amplitude = iae.estimate(problem, shots=2000)
 print(f"Estimated amplitude: {amplitude:.4f}")
 ```
 
-> **Note:** The canonical QPE-based `AmplitudeEstimation` class exists as a
-> stub and raises `NotImplementedError`.  Use `IterativeAmplitudeEstimation`
-> for all production work.
+> **Note:** The canonical QPE-based `AmplitudeEstimation` class is not yet
+> available and raises `NotImplementedError`.  Use
+> `IterativeAmplitudeEstimation` for currently supported amplitude estimation
+> workflows.
 
 ## Common Operations
 
