@@ -68,6 +68,7 @@ class QAOASolver(QuantumAlgorithm):
         initial_params: Initial parameters for optimization (optional)
         ansatz: Ansatz type ('standard', 'hardware_efficient', or callable, default: 'standard')
         mixer: Mixer type ('x' or 'xy', default: 'x')
+        verbose: Enable printing of optimization progress and completion summaries (default: True)
         name: Name of this QAOA instance
     """
 
@@ -97,7 +98,7 @@ class QAOASolver(QuantumAlgorithm):
         self._executor: Optional[JobManager] = None
         self.shots = 1024
         self.description = (
-            "Quantum Approximate Optimization Algorithm for combinatorial problems"
+            "Quantum Approximate Optimization Algorithm for combinatorial problems (verbose progress printing is enabled by default)"
         )
 
     def build_circuit(self, parameters: Optional[np.ndarray] = None) -> Circuit:

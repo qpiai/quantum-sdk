@@ -64,6 +64,7 @@ class VQESolver(QuantumAlgorithm):
         optimizer: Optimization method ('adam', 'gradient_descent', 'cobyla', 'spsa', etc.)
         max_iterations: Maximum number of optimization iterations (default: 100)
         initial_point: Initial parameters for optimization
+        verbose: Enable printing of optimization progress and completion summaries (default: True)
         name: Name of this VQE instance
 
     Note:
@@ -127,7 +128,7 @@ class VQESolver(QuantumAlgorithm):
         self._executor: Optional[JobManager] = None
         self.shots = 1024
         self.description = (
-            "Variational Quantum Eigensolver for finding ground state energies"
+            "Variational Quantum Eigensolver for finding ground state energies (verbose progress printing is enabled by default)"
         )
 
     def build_circuit(self, parameters: Optional[np.ndarray] = None) -> Circuit:
