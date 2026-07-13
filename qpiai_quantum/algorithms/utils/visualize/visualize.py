@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Tuple
 
 # Try to import seaborn, but make it optional
 try:
-    import seaborn as sns
+    import seaborn as sns  # type: ignore[import-untyped]
 
     HAS_SEABORN = True
     # Set nice default style
