@@ -843,7 +843,7 @@ class DensityMatrix(BaseDensityMatrix):
         return switcher.get(argument, "invalid argument choice")
 
     @staticmethod
-    def check_MUB(a: List[np.ndarray], b: List[np.ndarray]):
+    def check_MUB(a: List[np.ndarray], b: List[np.ndarray], verbose: bool = False) -> bool:
         dima = [len(item) for item in a]
         dimb = [len(item) for item in b]
 
@@ -861,10 +861,13 @@ class DensityMatrix(BaseDensityMatrix):
                                 - (1 / len(a))
                             )
 
-                    if np.count_nonzero(flag) == 0:
-                        print("Checking for MUB: passed for test all cases")
-                    else:
-                        print("Checking for MUB: some test cases failed")
+                    passed = np.count_nonzero(flag) == 0
+                    if verbose:
+                        if passed:
+                            print("Checking for MUB: passed for test all cases")
+                        else:
+                            print("Checking for MUB: some test cases failed")
+                    return passed
                 else:
                     raise ValueError("Dimensions of the two bases do not match!")
             else:
