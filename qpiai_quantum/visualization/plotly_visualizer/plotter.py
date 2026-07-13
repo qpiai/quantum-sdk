@@ -1,4 +1,4 @@
-import plotly.graph_objects as go
+import plotly.graph_objects as go  # type: ignore[import-untyped]
 import numpy as np
 from typing import List, Optional
 import math
