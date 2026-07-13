@@ -40,7 +40,7 @@ class Plotter:
         # Style options (keeping the same structure for compatibility)
         self.lightStyleOptions = {
             "bg_color": "#ffffff",
-            "test_color": "#1a1a1a",
+            "text_color": "#1a1a1a",
             "font_size": 10,
             "font_family": "Times New Roman",
             "qubit_wires": {
@@ -75,7 +75,7 @@ class Plotter:
 
         self.darkStyleOptions = {
             "bg_color": "#1a1a1a",
-            "test_color": "#ababab",
+            "text_color": "#ababab",
             "font_size": 10,
             "font_family": "Times New Roman",
             "qubit_wires": {

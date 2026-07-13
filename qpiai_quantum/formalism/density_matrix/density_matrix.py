@@ -115,7 +115,7 @@ class DensityMatrix(BaseDensityMatrix):
 
     def show(self):
         """
-        Prints the desity matrix into the console
+        Prints the density matrix into the console
         """
 
         print(self.state)
@@ -123,7 +123,7 @@ class DensityMatrix(BaseDensityMatrix):
     @staticmethod
     def check(densityMatrix: "DensityMatrix", verbose: bool = False) -> bool:
         """
-        Validate if the given desity matrix is valid
+        Validate if the given density matrix is valid
 
         Args:
             densityMatrix (DensityMatrix): The density matrix to be validated
