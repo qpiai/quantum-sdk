@@ -34,7 +34,7 @@ jobs:
         run: uv run ruff check .
 
       - name: Spell Check
-        run: uv run codespell --skip="./.git,./.venv,./.mypy_cache,./.ruff_cache,./.pytest_cache,./.uv-cache,./build,./dist,./qpiai_quantum.egg-info,./sdk_notebooks,./tracecov" .
+        uses: streetsidesoftware/cspell-action@v6
 
       - name: Dependency Audit
         run: uv run pip-audit

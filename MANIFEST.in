@@ -1,5 +1,6 @@
 exclude *.joblib
 global-exclude *.joblib
+exclude cspell.json
 prune test
 prune tests
 prune testing

@@ -2,7 +2,7 @@ from typing import List, Union
 import numpy as np
 import warnings
 import scipy.linalg as splinalg
-import scipy.sparse as spsparce
+import scipy.sparse as spsparse
 from cvxpy.expressions.expression import Expression
 import cvxpy as cp
 import matplotlib.pyplot as plt
@@ -267,7 +267,7 @@ class DensityMatrix(BaseDensityMatrix):
         Applies a sequence of Kraus operators on the density matrix
         """
 
-        # works only on 2 quibt states
+        # works only on 2 qubit states
         if self.state.shape != (4, 4):
             raise DensityMatrixException("This method works only for 2 qubit states")
 
@@ -311,14 +311,14 @@ class DensityMatrix(BaseDensityMatrix):
 
         def term(rho: np.ndarray, i: int, j: int, dims: List[int], axis=0):
             """ """
-            a = spsparce.coo_matrix(([1.0], ([0], [0])))
+            a = spsparse.coo_matrix(([1.0], ([0], [0])))
             for i_axis, dim in enumerate(dims):
                 if i_axis == axis:
-                    v = spsparce.coo_matrix(([1], ([i], [j])), shape=(dim, dim))
-                    a = spsparce.kron(a, v)
+                    v = spsparse.coo_matrix(([1], ([i], [j])), shape=(dim, dim))
+                    a = spsparse.kron(a, v)
                 else:
-                    eye_mat = spsparce.eye(dim)
-                    a = spsparce.kron(a, eye_mat)
+                    eye_mat = spsparse.eye(dim)
+                    a = spsparse.kron(a, eye_mat)
             return a @ rho @ a
 
         return DensityMatrix(
