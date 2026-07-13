@@ -12,7 +12,7 @@ def test_all_requests_calls_specify_a_timeout():
     package_dir = Path(__file__).parents[1] / "qpiai_quantum"
 
     for source_file in package_dir.rglob("*.py"):
-        tree = ast.parse(source_file.read_text())
+        tree = ast.parse(source_file.read_text(encoding="utf-8"))
         for call in ast.walk(tree):
             if not isinstance(call, ast.Call) or not isinstance(call.func, ast.Attribute):
                 continue
