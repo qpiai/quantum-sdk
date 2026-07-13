@@ -207,8 +207,10 @@ class Circuit:
                 "CZGate",
                 "CHGate",
                 "ECRGate",
+                "DCXGate",
                 "SwapGate",
                 "CCXGate",
+                "RCCXGate",
                 "CSwapGate",
             ]:
                 return copy.deepcopy(op)
@@ -238,6 +240,12 @@ class Circuit:
                 from ..icr.circuitoperation import ISwapGate
 
                 return ISwapGate(*op.qubits)
+
+            # CSDG inverse = CS (controlled S† → controlled S)
+            elif name == "CSDGGate":
+                from ..icr.circuitoperation import CSGate as CSG
+
+                return CSG(*op.qubits)
 
             # U gate inverse: U(θ, φ, λ)⁻¹ = U(-θ, -λ, -φ)
             elif name == "UGate":
@@ -687,6 +695,35 @@ class Circuit:
         self._validate_qubit(target_qubit)
         self.CRZ(control_qubit, target_qubit, theta)  # type: ignore
 
+    def cu(
+        self,
+        control_qubit: int,
+        target_qubit: int,
+        theta: float,
+        phi: float,
+        lam: float,
+        gamma: float,
+    ):
+        """
+        Apply a controlled U gate with four parameters.
+
+        CU(θ, φ, λ, γ) = diag(1, e^{iγ}) · controlled-U(θ, φ, λ)
+        where the global phase is γ and the control acts on the first
+        qubit.
+
+        Args:
+            control_qubit (int): Control qubit index
+            target_qubit (int): Target qubit index
+            theta (float): Polar angle in radians
+            phi (float): Azimuthal angle in radians
+            lam (float): Phase angle in radians
+            gamma (float): Global phase in radians
+        """
+        self._validate_unique_qubits(control_qubit, target_qubit)
+        self._validate_qubit(control_qubit)
+        self._validate_qubit(target_qubit)
+        self.CU(control_qubit, target_qubit, theta, phi, lam, gamma)  # type: ignore
+
     def ch(self, control_qubit: int, target_qubit: int):
         """
         Apply a controlled H gate.
@@ -713,6 +750,19 @@ class Circuit:
         self._validate_qubit(target_qubit)
         self.CS(control_qubit, target_qubit)  # type: ignore
 
+    def csdg(self, control_qubit: int, target_qubit: int):
+        """
+        Apply a controlled S† (inverse S) gate.
+
+        Args:
+            control_qubit (int): Control qubit index
+            target_qubit (int): Target qubit index
+        """
+        self._validate_unique_qubits(control_qubit, target_qubit)
+        self._validate_qubit(control_qubit)
+        self._validate_qubit(target_qubit)
+        self.CSDG(control_qubit, target_qubit)  # type: ignore
+
     def ecr(self, qubit1: int, qubit2: int):
         """
         Apply an ECR (echoed cross-resonance) gate between the specified qubits.
@@ -725,6 +775,21 @@ class Circuit:
         self._validate_qubit(qubit1)
         self._validate_qubit(qubit2)
         self.ECR(qubit1, qubit2)  # type: ignore
+
+    def dcx(self, qubit1: int, qubit2: int):
+        """
+        Apply a double CNOT (DCX) gate between the specified qubits.
+
+        The DCX gate is defined as CX(qubit1, qubit2) followed by CX(qubit2, qubit1).
+
+        Args:
+            qubit1 (int): First qubit index
+            qubit2 (int): Second qubit index
+        """
+        self._validate_unique_qubits(qubit1, qubit2)
+        self._validate_qubit(qubit1)
+        self._validate_qubit(qubit2)
+        self.DCX(qubit1, qubit2)  # type: ignore
 
     def u(self, qubit: int, theta: float, phi: float, lam: float):
         """
@@ -743,6 +808,21 @@ class Circuit:
         """
         self._validate_qubit(qubit)
         self.U(qubit, theta, phi, lam)  # type: ignore
+
+    def u2(self, qubit: int, phi: float, lam: float):
+        """
+        Apply a U2(φ, λ) gate to the specified qubit.
+
+        U2(φ, λ) = U(π/2, φ, λ) which is a single-qubit gate with two
+        free angles. Equivalent to Qiskit's U2Gate.
+
+        Args:
+            qubit (int): Qubit index
+            phi (float): Azimuthal angle in radians
+            lam (float): Phase angle in radians
+        """
+        self._validate_qubit(qubit)
+        self.U2(qubit, phi, lam)  # type: ignore
 
     def sxdg(self, qubit: int):
         """
@@ -783,6 +863,24 @@ class Circuit:
         self._validate_qubit(target_qubit1)
         self._validate_qubit(target_qubit2)
         self.CSWAP(control_qubit, target_qubit1, target_qubit2)  # type: ignore
+
+    def rccx(self, control_qubit1: int, control_qubit2: int, target_qubit: int):
+        """
+        Apply a relative-phase Toffoli (RCCX) gate.
+
+        The RCCX gate implements the same truth table as CCX but uses a
+        relative-phase decomposition that requires fewer CX gates.
+
+        Args:
+            control_qubit1 (int): First control qubit index
+            control_qubit2 (int): Second control qubit index
+            target_qubit (int): Target qubit index
+        """
+        self._validate_unique_qubits(control_qubit1, control_qubit2, target_qubit)
+        self._validate_qubit(control_qubit1)
+        self._validate_qubit(control_qubit2)
+        self._validate_qubit(target_qubit)
+        self.RCCX(control_qubit1, control_qubit2, target_qubit)  # type: ignore
 
     def mcx(self, control_qubits: list[int], target_qubit: int):
         """
