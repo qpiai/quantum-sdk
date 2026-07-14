@@ -245,7 +245,12 @@
     "numpy",
     "scipy",
     "setuptools",
-    "pycache"
+    "pycache",
+    "ipynb",
+    "tracecov",
+    "ndarray",
+    "xaxis",
+    "yaxis"
   ],
   "ignorePaths": [
     "node_modules/**",
