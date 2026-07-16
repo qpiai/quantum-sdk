@@ -27,7 +27,7 @@ class BaseQuantumResult(ABC):
 
     @property
     @abstractmethod
-    def counts(self) -> Optional[Dict[str, int]]:
+    def counts(self) -> dict[str, int] | None:
         """
         Get measurement counts.
 
@@ -47,7 +47,7 @@ class BaseQuantumResult(ABC):
 
     @property
     @abstractmethod
-    def statevector(self) -> Optional[List]:
+    def statevector(self) -> list | None:
         """
         Get the quantum statevector (if available).
 
@@ -83,7 +83,7 @@ class BaseQuantumResult(ABC):
 
     @property
     @abstractmethod
-    def shots(self) -> Optional[int]:
+    def shots(self) -> int | None:
         """
         Get the number of shots used.
 
@@ -98,7 +98,7 @@ class BaseQuantumResult(ABC):
         pass
 
     @property
-    def probabilities(self) -> Optional[Dict[str, float]]:
+    def probabilities(self) -> dict[str, float] | None:
         """
         Get measurement probabilities (derived from counts).
 
@@ -121,7 +121,7 @@ class BaseQuantumResult(ABC):
         assert total_shots is not None
         return {outcome: count / total_shots for outcome, count in self.counts.items()}
 
-    def get_counts(self) -> Optional[Dict[str, int]]:
+    def get_counts(self) -> dict[str, int] | None:
         """
         Get measurement counts (method version of property).
 
@@ -133,7 +133,7 @@ class BaseQuantumResult(ABC):
         """
         return self.counts
 
-    def get_statevector(self) -> Optional[List]:
+    def get_statevector(self) -> list | None:
         """
         Get statevector (method version of property).
 
@@ -145,7 +145,7 @@ class BaseQuantumResult(ABC):
         """
         return self.statevector
 
-    def get_probabilities(self) -> Optional[Dict[str, float]]:
+    def get_probabilities(self) -> dict[str, float] | None:
         """
         Get measurement probabilities (method version of property).
 
@@ -158,7 +158,7 @@ class BaseQuantumResult(ABC):
         return self.probabilities
 
     @property
-    def job_id(self) -> Optional[str]:
+    def job_id(self) -> str | None:
         """
         Get the job ID associated with the execution.
 
@@ -168,7 +168,7 @@ class BaseQuantumResult(ABC):
         return None
 
     @property
-    def job_status(self) -> Optional[str]:
+    def job_status(self) -> str | None:
         """
         Get the status of the execution job.
 
@@ -177,7 +177,7 @@ class BaseQuantumResult(ABC):
         """
         return None
 
-    def get_job_id(self) -> Optional[str]:
+    def get_job_id(self) -> str | None:
         """
         Get the job ID associated with the execution (method version of property).
 
@@ -186,7 +186,7 @@ class BaseQuantumResult(ABC):
         """
         return self.job_id
 
-    def get_job_status(self) -> Optional[str]:
+    def get_job_status(self) -> str | None:
         """
         Get the status of the execution job (method version of property).
 
@@ -196,7 +196,7 @@ class BaseQuantumResult(ABC):
         return self.job_status
 
     @abstractmethod
-    def get(self, *params) -> Dict[str, Any]:
+    def get(self, *params) -> dict[str, Any]:
         """
         Get result data as a dictionary.
 

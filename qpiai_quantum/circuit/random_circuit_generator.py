@@ -9,19 +9,18 @@ class RandomCircuitGenerator:
         self,
         num_qubits: int,
         depth: int,
-        max_gates: Optional[int] = None,
+        max_gates: int | None = None,
         allow_parametric: bool = True,
-        single_qubit_gates: Optional[List[str]] = None,
-        parametric_single_qubit_gates: Optional[List[str]] = None,
-        two_qubit_gates: Optional[List[str]] = None,
-        parametric_two_qubit_gates: Optional[List[str]] = None,
-        three_qubit_gates: Optional[List[str]] = None,
+        single_qubit_gates: list[str] | None = None,
+        parametric_single_qubit_gates: list[str] | None = None,
+        two_qubit_gates: list[str] | None = None,
+        parametric_two_qubit_gates: list[str] | None = None,
+        three_qubit_gates: list[str] | None = None,
         add_measurements: bool = True,
         single_qubit_probability: float = 0.6,
         two_qubit_probability: float = 0.3,
         parametric_probability: float = 0.3,
     ):
-
         self.num_qubits = num_qubits
         self.depth = depth
         self.max_gates = max_gates
@@ -66,7 +65,6 @@ class RandomCircuitGenerator:
         self._gate_counter = 0
 
     def _apply_single_qubit_gate_on(self, qubit: int):
-
         if self.allow_parametric and random.random() < self.parametric_probability:
             gate = random.choice(self.parametric_single_qubit_gates)
             angle = random.uniform(0.0, 2.0 * math.pi)
@@ -76,7 +74,6 @@ class RandomCircuitGenerator:
             getattr(self.circ, gate)(qubit)
 
     def _apply_two_qubit_gate_on(self, q1: int, q2: int):
-
         control, target = sorted((q1, q2))
 
         if self.allow_parametric and random.random() < self.parametric_probability:
@@ -88,13 +85,11 @@ class RandomCircuitGenerator:
             getattr(self.circ, gate)(control, target)
 
     def _apply_three_qubit_gate_on(self, q1: int, q2: int, q3: int):
-
         c1, c2, t = sorted((q1, q2, q3))
         gate = random.choice(self.three_qubit_gates)
         getattr(self.circ, gate)(c1, c2, t)
 
     def _sample_gate_arity(self):
-
         if self.num_qubits == 1:
             return 1
 
@@ -111,7 +106,6 @@ class RandomCircuitGenerator:
             return 3
 
     def _apply_layer(self):
-
         used = set()
 
         while True:
@@ -151,7 +145,6 @@ class RandomCircuitGenerator:
                 break
 
     def generate(self) -> Circuit:
-
         self._gate_counter = 0
 
         for _ in range(self.depth):
@@ -166,6 +159,5 @@ class RandomCircuitGenerator:
         return self
 
     def __next__(self):
-
         self.circ = Circuit(self.num_qubits, self.num_qubits)
         return self.generate()

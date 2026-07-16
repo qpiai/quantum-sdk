@@ -335,7 +335,7 @@ class Plotter:
         safe_label = safe_label.replace(" ", r"\ ")
         return rf"\mathrm{{{safe_label}}}"
 
-    def _plain_unicode_label(self, label: str) -> Optional[str]:
+    def _plain_unicode_label(self, label: str) -> str | None:
         """Return an upright plain-text label for simple Greek Mathtext labels."""
         normalized = label.strip()
         greek_replacements = {
@@ -667,9 +667,9 @@ class Plotter:
     def draw_n_qubit_gate(
         self,
         x: float,
-        qubits: List[int],
+        qubits: list[int],
         label: str,
-        params: Optional[List[float]] = None,
+        params: list[float] | None = None,
     ):
         """Draw a gate that operates on n qubits with optional parameters."""
         if len(qubits) == 1:

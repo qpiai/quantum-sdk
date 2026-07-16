@@ -20,7 +20,7 @@ class OptimizationProblem(ABC):
         pass
 
     @abstractmethod
-    def _get_hamiltonian_terms(self) -> List[Tuple[List[Tuple[int, str]], float]]:
+    def _get_hamiltonian_terms(self) -> list[tuple[list[tuple[int, str]], float]]:
         """
         Get Hamiltonian terms in library-agnostic format.
 
@@ -31,7 +31,7 @@ class OptimizationProblem(ABC):
         """
         pass
 
-    def get_hamiltonian_terms(self) -> List[Tuple[List[Tuple[int, str]], float]]:
+    def get_hamiltonian_terms(self) -> list[tuple[list[tuple[int, str]], float]]:
         """
         Public method to get Hamiltonian terms for VQE and other solvers.
 
@@ -41,7 +41,7 @@ class OptimizationProblem(ABC):
         return self._get_hamiltonian_terms()
 
     @abstractmethod
-    def decode_solution(self, bitstring: str) -> Dict[str, Any]:
+    def decode_solution(self, bitstring: str) -> dict[str, Any]:
         """
         Decode quantum measurement bitstring into problem solution.
 
@@ -54,7 +54,7 @@ class OptimizationProblem(ABC):
         pass
 
     @abstractmethod
-    def validate_solution(self, solution: Dict[str, Any]) -> Tuple[bool, str]:
+    def validate_solution(self, solution: dict[str, Any]) -> tuple[bool, str]:
         """
         Validate if solution satisfies problem constraints.
 
@@ -67,7 +67,7 @@ class OptimizationProblem(ABC):
         pass
 
     @abstractmethod
-    def compute_solution_quality(self, solution: Dict[str, Any]) -> Dict[str, float]:
+    def compute_solution_quality(self, solution: dict[str, Any]) -> dict[str, float]:
         """
         Compute quality metrics for a solution.
 

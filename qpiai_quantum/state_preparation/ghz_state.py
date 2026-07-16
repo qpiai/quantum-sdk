@@ -38,7 +38,6 @@ class GHZStateGenerator(QuantumAlgorithm):
         )
 
     def build_circuit(self, measure: bool = True, **kwargs) -> Circuit:
-
         num_classical = self.num_qubits if measure else 0
         self.circuit = Circuit(self.num_qubits, num_classical)
 
@@ -53,7 +52,7 @@ class GHZStateGenerator(QuantumAlgorithm):
 
         return self.circuit
 
-    def get_expected_outcomes(self) -> Dict[str, float]:
+    def get_expected_outcomes(self) -> dict[str, float]:
         """
         Get the theoretical probability distribution for the GHZ state.
         """
@@ -103,7 +102,7 @@ class GHZStateGenerator(QuantumAlgorithm):
         """
         return self.num_qubits
 
-    def compare_with_product_state(self, result: BaseQuantumResult) -> Dict[str, float]:
+    def compare_with_product_state(self, result: BaseQuantumResult) -> dict[str, float]:
         """
         Compare GHZ state measurements with what a product state would give.
 
@@ -140,7 +139,7 @@ class GHZStateGenerator(QuantumAlgorithm):
     @staticmethod
     def create_multiple_sizes(
         min_qubits: int = 3, max_qubits: int = 6
-    ) -> Dict[int, "GHZStateGenerator"]:
+    ) -> dict[int, "GHZStateGenerator"]:
         """
         Create GHZ state generators for multiple qubit counts.
 
@@ -158,10 +157,10 @@ class GHZStateGenerator(QuantumAlgorithm):
 
     @staticmethod
     def compare_different_sizes(
-        qubit_range: List[int] = [3, 4, 5],
+        qubit_range: list[int] = [3, 4, 5],
         shots: int = 1024,
-        backend: Optional[Backend] = None,
-    ) -> Dict[int, BaseQuantumResult]:
+        backend: Backend | None = None,
+    ) -> dict[int, BaseQuantumResult]:
         """
         Compare GHZ states of different sizes.
 

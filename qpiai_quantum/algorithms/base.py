@@ -11,7 +11,7 @@ class QuantumAlgorithm(ABC):
     def __init__(self, num_qubits: int, name: str = "QuantumAlgorithm"):
         self.num_qubits = num_qubits
         self.name = name
-        self.circuit: Optional[Circuit] = None
+        self.circuit: Circuit | None = None
         self.description = "Base quantum algorithm"
 
     @abstractmethod
@@ -43,13 +43,13 @@ class QuantumAlgorithm(ABC):
             **kwargs,
         )
 
-    def _backend_to_method_and_device(self, backend: Backend) -> Tuple[str, str]:
+    def _backend_to_method_and_device(self, backend: Backend) -> tuple[str, str]:
         return backend.to_method_and_device()
 
     def visualize(
         self,
         plot: str = "circuit",
-        result: Optional[BaseQuantumResult] = None,
+        result: BaseQuantumResult | None = None,
         **kwargs,
     ):
         if self.circuit is None:
@@ -179,7 +179,7 @@ class QuantumAlgorithm(ABC):
 
         return self.circuit.to_qasm()
 
-    def get_info(self) -> Dict[str, Any]:
+    def get_info(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "num_qubits": self.num_qubits,

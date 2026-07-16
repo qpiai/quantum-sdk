@@ -15,7 +15,7 @@ class MaxCutProblem(OptimizationProblem):
         """Construct MaxCut Hamiltonian."""
         return self._get_hamiltonian_terms()
 
-    def _get_hamiltonian_terms(self) -> List[Tuple[List[Tuple[int, str]], float]]:
+    def _get_hamiltonian_terms(self) -> list[tuple[list[tuple[int, str]], float]]:
         """Get MaxCut Hamiltonian terms in library-agnostic format."""
         terms = []
 
@@ -27,10 +27,10 @@ class MaxCutProblem(OptimizationProblem):
         return terms
 
     # NOTE: To Extract this Hamiltonian for USERS
-    def get_hamiltonian_terms(self) -> List[Tuple[List[Tuple[int, str]], float]]:
+    def get_hamiltonian_terms(self) -> list[tuple[list[tuple[int, str]], float]]:
         return self._get_hamiltonian_terms()
 
-    def decode_solution(self, bitstring: str) -> Dict[str, Any]:
+    def decode_solution(self, bitstring: str) -> dict[str, Any]:
         """Decode bitstring into MaxCut partitions."""
         partition_0 = []
         partition_1 = []
@@ -43,7 +43,7 @@ class MaxCutProblem(OptimizationProblem):
 
         return {"partition_0": partition_0, "partition_1": partition_1}
 
-    def validate_solution(self, solution: Dict[str, Any]) -> Tuple[bool, str]:
+    def validate_solution(self, solution: dict[str, Any]) -> tuple[bool, str]:
         """Validate MaxCut solution."""
         if "partition_0" not in solution or "partition_1" not in solution:
             return False, "Solution missing partitions"
@@ -57,7 +57,7 @@ class MaxCutProblem(OptimizationProblem):
 
         return True, "Valid MaxCut solution"
 
-    def compute_solution_quality(self, solution: Dict[str, Any]) -> Dict[str, float]:
+    def compute_solution_quality(self, solution: dict[str, Any]) -> dict[str, float]:
         """Compute comprehensive MaxCut quality metrics."""
         if not self.validate_solution(solution)[0]:
             return {"cut_value": 0.0, "is_valid": 0.0}
@@ -108,7 +108,7 @@ class PortfolioOptimizationProblem(OptimizationProblem):
         """Construct Portfolio Optimization Hamiltonian."""
         return self._get_hamiltonian_terms()
 
-    def _get_hamiltonian_terms(self) -> List[Tuple[List[Tuple[int, str]], float]]:
+    def _get_hamiltonian_terms(self) -> list[tuple[list[tuple[int, str]], float]]:
         """Get Portfolio Optimization Hamiltonian terms in library-agnostic format."""
         terms = []
 
@@ -143,11 +143,11 @@ class PortfolioOptimizationProblem(OptimizationProblem):
         return terms
 
     # NOTE: To Extract this Hamiltonian for USERS
-    def get_hamiltonian_terms(self) -> List[Tuple[List[Tuple[int, str]], float]]:
+    def get_hamiltonian_terms(self) -> list[tuple[list[tuple[int, str]], float]]:
         """Public method to get Hamiltonian terms for VQE."""
         return self._get_hamiltonian_terms()
 
-    def decode_solution(self, bitstring: str) -> Dict[str, Any]:
+    def decode_solution(self, bitstring: str) -> dict[str, Any]:
         """Decode bitstring into portfolio allocation."""
         allocation = np.array([int(b) for b in bitstring[::-1]])
 
@@ -159,7 +159,7 @@ class PortfolioOptimizationProblem(OptimizationProblem):
             "selected_assets": np.where(allocation > 0)[0].tolist(),
         }
 
-    def validate_solution(self, solution: Dict[str, Any]) -> Tuple[bool, str]:
+    def validate_solution(self, solution: dict[str, Any]) -> tuple[bool, str]:
         """Validate portfolio solution."""
         if "allocation" not in solution:
             return False, "Solution missing allocation"
@@ -184,7 +184,7 @@ class PortfolioOptimizationProblem(OptimizationProblem):
 
         return True, "Valid portfolio allocation"
 
-    def compute_solution_quality(self, solution: Dict[str, Any]) -> Dict[str, float]:
+    def compute_solution_quality(self, solution: dict[str, Any]) -> dict[str, float]:
         """Compute comprehensive portfolio quality metrics."""
         if not self.validate_solution(solution)[0]:
             return {

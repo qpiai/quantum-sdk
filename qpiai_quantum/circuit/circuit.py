@@ -152,7 +152,7 @@ class Circuit:
 
         self.icr._add_operation(operation)
 
-    def compose(self, other: "Circuit", qubits: Optional[List[int]] = None):
+    def compose(self, other: "Circuit", qubits: list[int] | None = None):
         """
         Appends the operations of another circuit onto this circuit.
 
@@ -253,7 +253,7 @@ class Circuit:
 
         return inv_circuit
 
-    def to_json(self) -> Dict:
+    def to_json(self) -> dict:
         """
         Returns the JSON representation of the circuit.
 
@@ -289,7 +289,7 @@ class Circuit:
         if name is None:
             name = self.name
 
-        gates: List[CircuitOperation] = list(self.icr.evolve)
+        gates: list[CircuitOperation] = list(self.icr.evolve)
 
         # validate circuit can be converted to a single circuit operation
 
@@ -598,7 +598,7 @@ class Circuit:
         self._validate_qubit(target_qubit2)
         self.CSWAP(control_qubit, target_qubit1, target_qubit2)  # type: ignore
 
-    def mcx(self, control_qubits: List[int], target_qubit: int):
+    def mcx(self, control_qubits: list[int], target_qubit: int):
         """
         Apply a multi-controlled X (MCX) gate.
 
@@ -618,7 +618,7 @@ class Circuit:
             self._validate_qubit(qubit)
         self.BARRIER(*qubits)  # type: ignore
 
-    def measure(self, qubit: Union[int, List[int]], clbit: Union[int, List[int]]):
+    def measure(self, qubit: int | list[int], clbit: int | list[int]):
         if isinstance(qubit, list) and isinstance(clbit, list):
             if len(qubit) != len(clbit):
                 raise CircuitError(
@@ -734,14 +734,14 @@ class Circuit:
         return job_result
 
     @staticmethod
-    def get_job_status(job_id: str) -> Optional[Dict[str, Any]]:
+    def get_job_status(job_id: str) -> dict[str, Any] | None:
         from ..jobmanager import JobManager
 
         job_manager = JobManager()
         return job_manager.get_job_status(job_id)
 
     @staticmethod
-    def check_job_status(job_id: str) -> Optional[Dict[str, Any]]:
+    def check_job_status(job_id: str) -> dict[str, Any] | None:
         return Circuit.get_job_status(job_id)
 
     @staticmethod
@@ -752,21 +752,21 @@ class Circuit:
         return job_manager.get_job_results(job_id)
 
     @staticmethod
-    def cancel_job(job_id: str) -> Dict[str, Any]:
+    def cancel_job(job_id: str) -> dict[str, Any]:
         from ..jobmanager import JobManager
 
         job_manager = JobManager()
         return job_manager.cancel_job(job_id)
 
     @staticmethod
-    def delete_job(job_id: str) -> Dict[str, Any]:
+    def delete_job(job_id: str) -> dict[str, Any]:
         from ..jobmanager import JobManager
 
         job_manager = JobManager()
         return job_manager.delete_job(job_id)
 
     @staticmethod
-    def get_current_job() -> Optional[Dict[str, Any]]:
+    def get_current_job() -> dict[str, Any] | None:
         from ..jobmanager import JobManager
 
         job_manager = JobManager()
@@ -774,11 +774,11 @@ class Circuit:
 
     @staticmethod
     def get_job_history(
-        period: Optional[str] = None,
-        status: Optional[str] = None,
+        period: str | None = None,
+        status: str | None = None,
         page: int = 1,
         page_size: int = 20,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         from ..jobmanager import JobManager
 
         job_manager = JobManager()
@@ -786,11 +786,11 @@ class Circuit:
 
     @staticmethod
     def list_jobs(
-        period: Optional[str] = None,
-        status: Optional[str] = None,
+        period: str | None = None,
+        status: str | None = None,
         page: int = 1,
         page_size: int = 20,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         return Circuit.get_job_history(period, status, page, page_size)
 
     def depth(self) -> int:
@@ -827,7 +827,7 @@ class Circuit:
     def num_clbits(self) -> int:
         return self.icr.num_clbits
 
-    def list_gates(self) -> Dict:
+    def list_gates(self) -> dict:
         # NOTE: Clifford gates set
         clifford_gate_names = {
             "H",
@@ -845,7 +845,7 @@ class Circuit:
             "ID",
         }
 
-        stats: Dict[str, Any] = {
+        stats: dict[str, Any] = {
             "total_operations": 0,
             "total_gates": 0,
             "single_qubit_gates": 0,

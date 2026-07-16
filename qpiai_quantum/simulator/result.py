@@ -49,24 +49,24 @@ class QasmSimulatorResult(BaseQuantumResult):
 
     def __init__(
         self,
-        name: Optional[str] = None,
-        counts: Optional[Dict[str, int]] = None,
-        statevector: Optional[List] = None,
-        probabilities: Optional[Dict[str, float]] = None,
+        name: str | None = None,
+        counts: dict[str, int] | None = None,
+        statevector: list | None = None,
+        probabilities: dict[str, float] | None = None,
         density_matrix=None,
-        message: Optional[str] = "Job executed successfully",
+        message: str | None = "Job executed successfully",
         execution_time: float = 0.0,
         cpu_usage: float = 0.0,
         memory_usage: float = 0.0,
         gpu_memory_usage: float = 0.0,
-        shots: Optional[int] = 0,
-        job_id: Optional[str] = None,
-        job_status: Optional[str] = None,
-        method: Optional[str] = "qasm_simulator",
+        shots: int | None = 0,
+        job_id: str | None = None,
+        job_status: str | None = None,
+        method: str | None = "qasm_simulator",
         credits_used: int = 0,
-        job_metadata: Optional[Dict[str, Any]] = None,
-        n_qubits: Optional[int] = None,
-        n_cbits: Optional[int] = None,
+        job_metadata: dict[str, Any] | None = None,
+        n_qubits: int | None = None,
+        n_cbits: int | None = None,
     ):
         self.name = name
         self._counts = counts
@@ -80,7 +80,7 @@ class QasmSimulatorResult(BaseQuantumResult):
         self.gpu_memory_usage = gpu_memory_usage
         self._shots = shots
         self._job_id = job_id
-        self._job_status: Optional[str] = job_status or "completed"
+        self._job_status: str | None = job_status or "completed"
         self.method = method
         self.credits_used = credits_used
         self.job_metadata = job_metadata or {}
@@ -94,15 +94,15 @@ class QasmSimulatorResult(BaseQuantumResult):
         return self._execution_time
 
     @property
-    def statevector(self) -> Optional[List]:
+    def statevector(self) -> list | None:
         return self._statevector
 
     @statevector.setter
-    def statevector(self, value: Optional[List]):
+    def statevector(self, value: list | None):
         self._statevector = value
 
     @property
-    def probabilities(self) -> Optional[Dict[str, float]]:
+    def probabilities(self) -> dict[str, float] | None:
         if self._probabilities is not None:
             return self._probabilities
         if self._counts is None or not self._shots or self._shots == 0:
@@ -111,39 +111,39 @@ class QasmSimulatorResult(BaseQuantumResult):
         return {outcome: count / total_shots for outcome, count in self._counts.items()}
 
     @probabilities.setter
-    def probabilities(self, value: Optional[Dict[str, float]]):
+    def probabilities(self, value: dict[str, float] | None):
         self._probabilities = value
 
     @property
-    def shots(self) -> Optional[int]:
+    def shots(self) -> int | None:
         return self._shots
 
     @shots.setter
-    def shots(self, value: Optional[int]):
+    def shots(self, value: int | None):
         self._shots = value
 
     @property
-    def counts(self) -> Optional[Dict[str, int]]:
+    def counts(self) -> dict[str, int] | None:
         return self._counts
 
     @counts.setter
-    def counts(self, value: Optional[Dict[str, int]]):
+    def counts(self, value: dict[str, int] | None):
         self._counts = value
 
     @property
-    def job_id(self) -> Optional[str]:
+    def job_id(self) -> str | None:
         return self._job_id
 
     @job_id.setter
-    def job_id(self, value: Optional[str]):
+    def job_id(self, value: str | None):
         self._job_id = value
 
     @property
-    def job_status(self) -> Optional[str]:
+    def job_status(self) -> str | None:
         return self._job_status
 
     @job_status.setter
-    def job_status(self, value: Optional[str]):
+    def job_status(self, value: str | None):
         self._job_status = value
 
     # -- Convenience methods ------------------------------------------------
@@ -151,15 +151,15 @@ class QasmSimulatorResult(BaseQuantumResult):
     def set_name(self, name: str):
         self.name = name
 
-    def get_job_id(self) -> Optional[str]:
+    def get_job_id(self) -> str | None:
         return self.job_id
 
-    def get_job_status(self) -> Optional[str]:
+    def get_job_status(self) -> str | None:
         return self.job_status
 
     # -- get(): zero-arg returns everything (matches JobResult.get()) -------
 
-    def get(self, *param) -> Dict[str, Any]:
+    def get(self, *param) -> dict[str, Any]:
         if len(param) == 0:
             return {
                 "name": self.name,
@@ -182,7 +182,7 @@ class QasmSimulatorResult(BaseQuantumResult):
                 "n_cbits": self.n_cbits,
             }
 
-        res_object: Dict[str, Any] = {}
+        res_object: dict[str, Any] = {}
         for p in param:
             if hasattr(self, p):
                 res_object[p] = getattr(self, p)
@@ -234,7 +234,7 @@ class QasmSimulatorResult(BaseQuantumResult):
                 return obj.tolist()
             raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             "job_id": self.job_id,
             "job_status": self.job_status,
             "name": self.name,

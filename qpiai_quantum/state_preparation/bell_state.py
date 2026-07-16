@@ -21,7 +21,6 @@ class BellStateGenerator(QuantumAlgorithm):
     VALID_STATES = ["|Ψ+>", "|Ψ->", "|Φ+>", "|Φ->"]
 
     def __init__(self, state_type: str = "|Ψ+>"):
-
         if state_type not in self.VALID_STATES:
             raise ValueError(
                 f"Invalid state_type '{state_type}'. Choose from: {self.VALID_STATES}"
@@ -43,7 +42,6 @@ class BellStateGenerator(QuantumAlgorithm):
         return descriptions[self.state_type]
 
     def build_circuit(self, measure: bool = True, **kwargs) -> Circuit:
-
         num_classical = 2 if measure else 0
         self.circuit = Circuit(self.num_qubits, num_classical)
 
@@ -63,31 +61,26 @@ class BellStateGenerator(QuantumAlgorithm):
         return self.circuit
 
     def _build_psi_plus(self):
-
         self.circuit.h(0)  # type: ignore
         self.circuit.cx(0, 1)  # type: ignore
 
     def _build_psi_minus(self):
-
         self.circuit.x(0)  # type: ignore
         self.circuit.h(0)  # type: ignore
         self.circuit.cx(0, 1)  # type: ignore
 
     def _build_phi_plus(self):
-
         self.circuit.x(1)  # type: ignore
         self.circuit.h(0)  # type: ignore
         self.circuit.cx(0, 1)  # type: ignore
 
     def _build_phi_minus(self):
-
         self.circuit.x(1)  # type: ignore
         self.circuit.x(0)  # type: ignore
         self.circuit.h(0)  # type: ignore
         self.circuit.cx(0, 1)  # type: ignore
 
-    def get_expected_outcomes(self) -> Dict[str, float]:
-
+    def get_expected_outcomes(self) -> dict[str, float]:
         outcomes = {
             "|Ψ+>": {"00": 0.5, "11": 0.5},
             "|Ψ->": {"00": 0.5, "11": 0.5},
@@ -99,7 +92,6 @@ class BellStateGenerator(QuantumAlgorithm):
     def verify_entanglement(
         self, result: BaseQuantumResult, threshold: float = 0.4
     ) -> bool:
-
         counts = result.get_counts() or {}
         total_shots = sum(counts.values())
 
@@ -121,16 +113,14 @@ class BellStateGenerator(QuantumAlgorithm):
         return True
 
     @staticmethod
-    def get_all_bell_states() -> Dict[str, "BellStateGenerator"]:
-
+    def get_all_bell_states() -> dict[str, "BellStateGenerator"]:
         return {
             state: BellStateGenerator(state)
             for state in BellStateGenerator.VALID_STATES
         }
 
     @staticmethod
-    def compare_all_bell_states(shots: int = 1024, backend: Optional[Backend] = None):
-
+    def compare_all_bell_states(shots: int = 1024, backend: Backend | None = None):
         from qpiai_quantum.jobmanager import Backend
 
         if backend is None:
@@ -151,18 +141,15 @@ class BellStateGenerator(QuantumAlgorithm):
 
 
 def create_bell_state(state_type: str = "|Ψ+>") -> BellStateGenerator:
-
     return BellStateGenerator(state_type)
 
 
 def get_bell_state_circuit(state_type: str = "|Ψ+>", measure: bool = True) -> Circuit:
-
     bell = BellStateGenerator(state_type)
     return bell.build_circuit(measure=measure)
 
 
-def get_all_bell_state_circuits(measure: bool = True) -> Dict[str, Circuit]:
-
+def get_all_bell_state_circuits(measure: bool = True) -> dict[str, Circuit]:
     circuits = {}
     for state_name in BellStateGenerator.VALID_STATES:
         bell = BellStateGenerator(state_name)

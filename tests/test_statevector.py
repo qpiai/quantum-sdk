@@ -13,7 +13,6 @@ from qpiai_quantum.simulator.statevector import StatevectorSimulator
 
 
 class TestStatevector(unittest.TestCase):
-
     def test_init_from_array(self):
         """Test Statevector initialization from array/list and automatic normalization."""
         # Non-normalized input
@@ -103,7 +102,7 @@ class TestStatevector(unittest.TestCase):
         # Note: state order is qubit 0 (least significant bit) and qubit 1 (most significant).
         # |01> (qubit 0 is 1, qubit 1 is 0).
         qc = Circuit(2)
-        qc.cx(1, 0) # Control qubit 1, Target qubit 0
+        qc.cx(1, 0)  # Control qubit 1, Target qubit 0
 
         sv_new = sv.evolve(qc)
 
@@ -112,7 +111,7 @@ class TestStatevector(unittest.TestCase):
 
         # Apply CNOT with control qubit 0, target qubit 1
         qc2 = Circuit(2)
-        qc2.cx(0, 1) # Control qubit 0 (is 1), Target qubit 1 (flips from 0 to 1)
+        qc2.cx(0, 1)  # Control qubit 0 (is 1), Target qubit 1 (flips from 0 to 1)
 
         sv_final = sv_new.evolve(qc2)
 

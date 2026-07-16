@@ -1,6 +1,7 @@
 import math
 import copy
-from typing import Optional, List, Callable, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple
+from collections.abc import Callable
 import scipy.optimize
 import numpy as np
 
@@ -45,8 +46,8 @@ class EstimationProblem:
     def __init__(
         self,
         state_preparation: Circuit,
-        objective_qubits: List[int],
-        is_good_state: Optional[Callable[[str], bool]] = None,
+        objective_qubits: list[int],
+        is_good_state: Callable[[str], bool] | None = None,
     ):
         self.state_preparation = state_preparation
         self.objective_qubits = objective_qubits

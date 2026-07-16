@@ -5,8 +5,7 @@ import math
 
 
 class GroverSearch(QuantumAlgorithm):
-    def __init__(self, num_qubits: int, target: Optional[str] = None):
-
+    def __init__(self, num_qubits: int, target: str | None = None):
         super().__init__(num_qubits=num_qubits, name="Grover's Search")
         self.target = target
         self.description = (
@@ -16,9 +15,8 @@ class GroverSearch(QuantumAlgorithm):
         self.num_iterations = int(math.pi / 4 * math.sqrt(2**num_qubits))
 
     def build_circuit(
-        self, target: Optional[str] = None, iterations: Optional[int] = None
+        self, target: str | None = None, iterations: int | None = None
     ) -> Circuit:
-
         if target is not None:
             self.target = target
 
@@ -52,7 +50,6 @@ class GroverSearch(QuantumAlgorithm):
             self.circuit.h(i)
 
     def _oracle(self):
-
         for i, bit in enumerate(self.target):
             if bit == "0":
                 self.circuit.x(i)
@@ -83,7 +80,6 @@ class GroverSearch(QuantumAlgorithm):
         self.circuit.mcx(controls, target)
 
     def _diffusion(self):
-
         for i in range(self.num_qubits):
             self.circuit.h(i)
 
@@ -111,8 +107,7 @@ class GroverSearch(QuantumAlgorithm):
         for i in range(self.num_qubits):
             self.circuit.h(i)
 
-    def get_success_probability(self, iterations: Optional[int] = None) -> float:
-
+    def get_success_probability(self, iterations: int | None = None) -> float:
         if iterations is None:
             iterations = self.num_iterations
 

@@ -1,6 +1,7 @@
 """Gradient-based optimization methods with complete history tracking."""
 
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
+from collections.abc import Callable
 import numpy as np
 from scipy.optimize import minimize
 
@@ -33,7 +34,7 @@ class HistoryTracker:
 
         return wrapped_objective
 
-    def create_callback(self, user_callback: Optional[Callable] = None):
+    def create_callback(self, user_callback: Callable | None = None):
         """Create a callback that tracks iterations."""
 
         def callback_wrapper(xk):
@@ -55,7 +56,7 @@ def gradient_descent_optimize(
     maxiter: int = 100,
     tol: float = 1e-6,
     **kwargs,
-) -> Tuple[np.ndarray, float, Dict]:
+) -> tuple[np.ndarray, float, dict]:
     """
     Basic gradient descent optimizer with complete history tracking.
 
@@ -162,7 +163,7 @@ def adam_optimize(
     maxiter: int = 100,
     tol: float = 1e-6,
     **kwargs,
-) -> Tuple[np.ndarray, float, Dict]:
+) -> tuple[np.ndarray, float, dict]:
     """
     Adam optimizer (Adaptive Moment Estimation) with complete history tracking.
 
@@ -289,7 +290,7 @@ def adagrad_optimize(
     maxiter: int = 100,
     tol: float = 1e-6,
     **kwargs,
-) -> Tuple[np.ndarray, float, Dict]:
+) -> tuple[np.ndarray, float, dict]:
     """
     Adagrad optimizer (Adaptive Gradient Algorithm) with complete history tracking.
 
@@ -397,13 +398,13 @@ def adagrad_optimize(
 
 def l_bfgs_b_optimize(
     objective: Callable[[np.ndarray], float],
-    gradient: Optional[Callable[[np.ndarray], np.ndarray]] = None,
+    gradient: Callable[[np.ndarray], np.ndarray] | None = None,
     initial_point: np.ndarray = None,
-    bounds: Optional[List[Tuple[float, float]]] = None,
+    bounds: list[tuple[float, float]] | None = None,
     maxiter: int = 100,
     tol: float = 1e-6,
     **kwargs,
-) -> Tuple[np.ndarray, float, Dict]:
+) -> tuple[np.ndarray, float, dict]:
     """
     L-BFGS-B optimizer (Limited-memory BFGS with bounds) with complete history tracking.
 
@@ -468,12 +469,12 @@ def l_bfgs_b_optimize(
 
 def cg_optimize(
     objective: Callable[[np.ndarray], float],
-    gradient: Optional[Callable[[np.ndarray], np.ndarray]] = None,
+    gradient: Callable[[np.ndarray], np.ndarray] | None = None,
     initial_point: np.ndarray = None,
     maxiter: int = 100,
     tol: float = 1e-6,
     **kwargs,
-) -> Tuple[np.ndarray, float, Dict]:
+) -> tuple[np.ndarray, float, dict]:
     """
     Conjugate Gradient optimizer with complete history tracking.
 

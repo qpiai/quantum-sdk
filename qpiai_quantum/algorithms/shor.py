@@ -108,7 +108,7 @@ class ShorsAlgorithm(QuantumAlgorithm):
         return True
 
     @staticmethod
-    def is_power(n: int) -> Optional[Tuple[int, int]]:
+    def is_power(n: int) -> tuple[int, int] | None:
         """
         Check if n is a perfect power (n = a^b for some integers a, b > 1).
 
@@ -261,7 +261,7 @@ class ShorsAlgorithm(QuantumAlgorithm):
 
         return order if current == 1 else 1
 
-    def find_period(self, a: int, precision_qubits: Optional[int] = None) -> int:
+    def find_period(self, a: int, precision_qubits: int | None = None) -> int:
         """
         Find the period r such that a^r ≡ 1 (mod N).
 
@@ -294,7 +294,7 @@ class ShorsAlgorithm(QuantumAlgorithm):
 
         return frac.denominator
 
-    def factor(self, max_attempts: int = 10) -> Optional[Tuple[int, int]]:
+    def factor(self, max_attempts: int = 10) -> tuple[int, int] | None:
         """
         Factor N using Shor's algorithm.
 

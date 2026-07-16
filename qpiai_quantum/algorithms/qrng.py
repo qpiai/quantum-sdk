@@ -100,9 +100,7 @@ class QRNG(QuantumAlgorithm):
                 f"Choose from {QRNG.VALID_FORMATS}"
             )
 
-    def _convert_output(
-        self, bitstring: str, output_format: str
-    ) -> Union[int, bytes, str]:
+    def _convert_output(self, bitstring: str, output_format: str) -> int | bytes | str:
         """
         Convert a raw measurement bitstring to the requested format.
 
@@ -130,7 +128,7 @@ class QRNG(QuantumAlgorithm):
         self,
         shots: int = 1,
         output_format: str = "int",
-    ) -> Union[int, bytes, str, List]:
+    ) -> int | bytes | str | list:
         """
         Generate quantum random number(s).
 
@@ -156,7 +154,7 @@ class QRNG(QuantumAlgorithm):
         counts = result.get()["counts"]
 
         # Expand the counts dict into individual samples
-        samples: List = []
+        samples: list = []
         for bitstring, count in counts.items():
             converted = self._convert_output(bitstring, output_format)
             samples.extend([converted] * count)
@@ -169,7 +167,7 @@ class QRNG(QuantumAlgorithm):
         self,
         count: int,
         output_format: str = "int",
-    ) -> List[Union[int, bytes, str]]:
+    ) -> list[int | bytes | str]:
         """
         Generate a batch of quantum random values in a single backend call.
 

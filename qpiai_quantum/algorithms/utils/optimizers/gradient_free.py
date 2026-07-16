@@ -1,5 +1,6 @@
 # Gradient-free optimizers for quantum algorithms
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
+from collections.abc import Callable
 import numpy as np
 from scipy.optimize import minimize, differential_evolution
 
@@ -32,7 +33,7 @@ class HistoryTracker:
 
         return wrapped_objective
 
-    def create_callback(self, user_callback: Optional[Callable] = None):
+    def create_callback(self, user_callback: Callable | None = None):
         """Create a callback that tracks iterations."""
 
         def callback_wrapper(xk):
@@ -49,12 +50,12 @@ class HistoryTracker:
 def cobyla_optimize(
     objective: Callable[[np.ndarray], float],
     initial_point: np.ndarray,
-    bounds: Optional[List[Tuple[float, float]]] = None,
+    bounds: list[tuple[float, float]] | None = None,
     maxiter: int = 100,
-    maxfun: Optional[int] = None,
+    maxfun: int | None = None,
     tol: float = 1e-6,
     **kwargs,
-) -> Tuple[np.ndarray, float, Dict]:
+) -> tuple[np.ndarray, float, dict]:
     """
     COBYLA (Constrained Optimization BY Linear Approximation) optimizer.
     """
@@ -121,11 +122,11 @@ def cobyla_optimize(
 def nelder_mead_optimize(
     objective: Callable[[np.ndarray], float],
     initial_point: np.ndarray,
-    bounds: Optional[List[Tuple[float, float]]] = None,
+    bounds: list[tuple[float, float]] | None = None,
     maxiter: int = 100,
     tol: float = 1e-6,
     **kwargs,
-) -> Tuple[np.ndarray, float, Dict]:
+) -> tuple[np.ndarray, float, dict]:
     """
     Nelder-Mead simplex optimizer.
     """
@@ -183,7 +184,7 @@ def spsa_optimize(
     learning_rate: float = 0.1,
     perturbation_scale: float = 0.1,
     **kwargs,
-) -> Tuple[np.ndarray, float, Dict]:
+) -> tuple[np.ndarray, float, dict]:
     """
     SPSA (Simultaneous Perturbation Stochastic Approximation) optimizer.
 
@@ -276,12 +277,12 @@ def spsa_optimize(
 def slsqp_optimize(
     objective: Callable[[np.ndarray], float],
     initial_point: np.ndarray,
-    bounds: Optional[List[Tuple[float, float]]] = None,
-    constraints: Optional[List[Dict]] = None,
+    bounds: list[tuple[float, float]] | None = None,
+    constraints: list[dict] | None = None,
     maxiter: int = 100,
     tol: float = 1e-6,
     **kwargs,
-) -> Tuple[np.ndarray, float, Dict]:
+) -> tuple[np.ndarray, float, dict]:
     """
     SLSQP (Sequential Least SQuares Programming) optimizer.
     """
@@ -317,12 +318,12 @@ def slsqp_optimize(
 
 def differential_evolution_optimize(
     objective: Callable[[np.ndarray], float],
-    bounds: List[Tuple[float, float]],
+    bounds: list[tuple[float, float]],
     maxiter: int = 100,
     tol: float = 1e-6,
     popsize: int = 15,
     **kwargs,
-) -> Tuple[np.ndarray, float, Dict]:
+) -> tuple[np.ndarray, float, dict]:
     """
     Differential Evolution optimizer.
     """
@@ -352,13 +353,13 @@ def differential_evolution_optimize(
 
 def genetic_algorithm_optimize(
     objective: Callable[[np.ndarray], float],
-    bounds: List[Tuple[float, float]],
+    bounds: list[tuple[float, float]],
     maxiter: int = 100,
     population_size: int = 50,
     mutation_rate: float = 0.1,
     crossover_rate: float = 0.8,
     **kwargs,
-) -> Tuple[np.ndarray, float, Dict]:
+) -> tuple[np.ndarray, float, dict]:
     """
     Simple Genetic Algorithm optimizer.
 
@@ -454,14 +455,14 @@ def genetic_algorithm_optimize(
 
 def particle_swarm_optimize(
     objective: Callable[[np.ndarray], float],
-    bounds: List[Tuple[float, float]],
+    bounds: list[tuple[float, float]],
     maxiter: int = 100,
     n_particles: int = 30,
     w: float = 0.9,
     c1: float = 2.0,
     c2: float = 2.0,
     **kwargs,
-) -> Tuple[np.ndarray, float, Dict]:
+) -> tuple[np.ndarray, float, dict]:
     """
     Particle Swarm Optimization.
 
@@ -569,11 +570,11 @@ def particle_swarm_optimize(
 def powell_optimize(
     objective: Callable[[np.ndarray], float],
     initial_point: np.ndarray,
-    bounds: Optional[List[Tuple[float, float]]] = None,
+    bounds: list[tuple[float, float]] | None = None,
     maxiter: int = 100,
     tol: float = 1e-6,
     **kwargs,
-) -> Tuple[np.ndarray, float, Dict]:
+) -> tuple[np.ndarray, float, dict]:
     """
     Powell optimizer.
     """

@@ -45,7 +45,7 @@ class DeutschJozsa(QuantumAlgorithm):
     def __init__(
         self,
         num_qubits: int,
-        oracle_type: Optional[str] = None,
+        oracle_type: str | None = None,
     ):
         if num_qubits < 1:
             raise ValueError("Deutsch-Jozsa requires at least 1 input qubit.")
@@ -59,7 +59,7 @@ class DeutschJozsa(QuantumAlgorithm):
 
     def build_circuit(
         self,
-        oracle_type: Optional[str] = None,
+        oracle_type: str | None = None,
     ) -> Circuit:
         """
         Build the Deutsch-Jozsa circuit.
@@ -194,7 +194,7 @@ class DeutschJozsa(QuantumAlgorithm):
         else:
             return "balanced"
 
-    def get_theoretical_result(self) -> Dict[str, Any]:
+    def get_theoretical_result(self) -> dict[str, Any]:
         """
         Get the theoretically expected measurement outcome.
 

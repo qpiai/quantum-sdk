@@ -7,7 +7,7 @@ import random
 
 class SpecialStates:
     @staticmethod
-    def werner_state(seed: float) -> Tuple[DensityMatrix, List[float]]:
+    def werner_state(seed: float) -> tuple[DensityMatrix, list[float]]:
         """
         Generate a Werner state for a given seed value
 

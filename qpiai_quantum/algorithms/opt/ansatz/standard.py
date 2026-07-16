@@ -122,7 +122,7 @@ def standard_qaoa_ansatz(
 
 def _apply_cost_evolution(
     circuit: Circuit,
-    ops: List[Tuple[int, str]],
+    ops: list[tuple[int, str]],
     coeff: float,
     parameter_value: float = 0.0,
 ):

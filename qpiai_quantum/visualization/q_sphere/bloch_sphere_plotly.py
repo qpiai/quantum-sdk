@@ -45,7 +45,7 @@ class PlotlyBlochSphere:
             hoverinfo="skip",
         )
 
-    def _create_axes_traces(self) -> List[go.Scatter3d]:
+    def _create_axes_traces(self) -> list[go.Scatter3d]:
         """
         Create traces for the X, Y, Z axes.
 
@@ -99,7 +99,7 @@ class PlotlyBlochSphere:
 
         return traces
 
-    def _create_axis_labels(self) -> List[go.Scatter3d]:
+    def _create_axis_labels(self) -> list[go.Scatter3d]:
         """
         Create text annotations for axes and quantum states.
 
@@ -198,9 +198,9 @@ class PlotlyBlochSphere:
 
     def add_vector(
         self,
-        vector: Union[List[float], np.ndarray],
+        vector: list[float] | np.ndarray,
         color: str = "red",
-        label: Optional[str] = None,
+        label: str | None = None,
     ):
         """
         Add a vector to the Bloch sphere.
@@ -222,9 +222,9 @@ class PlotlyBlochSphere:
 
     def add_state(
         self,
-        state_vector: Union[List[complex], np.ndarray],
+        state_vector: list[complex] | np.ndarray,
         color: str = "red",
-        label: Optional[str] = None,
+        label: str | None = None,
     ):
         """
         Add a quantum state to the Bloch sphere.
@@ -252,7 +252,7 @@ class PlotlyBlochSphere:
         self.add_vector(bloch_vector, color=color, label=label)
 
     def add_density_matrix(
-        self, rho: np.ndarray, color: str = "red", label: Optional[str] = None
+        self, rho: np.ndarray, color: str = "red", label: str | None = None
     ):
         """
         Add a quantum state from its density matrix representation.
@@ -273,7 +273,7 @@ class PlotlyBlochSphere:
         self.add_vector(bloch_vector, color=color, label=label)
 
     def add_state_from_angles(
-        self, theta: float, phi: float, color: str = "red", label: Optional[str] = None
+        self, theta: float, phi: float, color: str = "red", label: str | None = None
     ):
         """
         Add a quantum state using spherical coordinates.
@@ -295,7 +295,7 @@ class PlotlyBlochSphere:
 
     def _create_arrow(
         self, vector: np.ndarray, color: str, label: str
-    ) -> List[go.Scatter3d]:
+    ) -> list[go.Scatter3d]:
         """
         Create an arrow trace for a state vector.
 
@@ -453,9 +453,9 @@ class PlotlyBlochSphere:
 
 
 def create_interactive_bloch_sphere(
-    states: Optional[List[np.ndarray]] = None,
-    colors: Optional[List[str]] = None,
-    labels: Optional[List[str]] = None,
+    states: list[np.ndarray] | None = None,
+    colors: list[str] | None = None,
+    labels: list[str] | None = None,
     title: str = "Interactive Bloch Sphere",
 ) -> PlotlyBlochSphere:
     """

@@ -6,7 +6,8 @@ including Shor's algorithm and quantum chemistry simulations.
 """
 
 import math
-from typing import Optional, Callable
+from typing import Optional
+from collections.abc import Callable
 from qpiai_quantum.circuit import Circuit
 from qpiai_quantum.jobmanager.job_result import JobResult
 from .base import QuantumAlgorithm
@@ -47,7 +48,7 @@ class QuantumPhaseEstimation(QuantumAlgorithm):
         )
 
     def build_circuit(
-        self, unitary: str = "T", eigenstate_preparation: Optional[Callable] = None
+        self, unitary: str = "T", eigenstate_preparation: Callable | None = None
     ) -> Circuit:
         """
         Build the Quantum Phase Estimation circuit.
@@ -145,7 +146,7 @@ class QuantumPhaseEstimation(QuantumAlgorithm):
                 pass
 
     def estimate_phase(
-        self, unitary: str = "T", eigenstate_preparation: Optional[Callable] = None
+        self, unitary: str = "T", eigenstate_preparation: Callable | None = None
     ) -> float:
         """
         Estimate the phase θ by running the algorithm.

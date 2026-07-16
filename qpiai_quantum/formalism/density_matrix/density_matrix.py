@@ -16,7 +16,7 @@ class DensityMatrix(BaseDensityMatrix):
     The density matrix formalism for creating and manipulating quantum states using density matrices.
     """
 
-    def __init__(self, state: Union[List[List[complex]], np.ndarray]):
+    def __init__(self, state: list[list[complex]] | np.ndarray):
         """
         Creates a DensityMatrix object for a given quantum state as numpy array or list.
 
@@ -26,7 +26,7 @@ class DensityMatrix(BaseDensityMatrix):
         if isinstance(state, np.ndarray):
             state = state
 
-        elif isinstance(state, List):
+        elif isinstance(state, list):
             state = np.array(state)
 
         else:
@@ -75,7 +75,7 @@ class DensityMatrix(BaseDensityMatrix):
         if isinstance(state, np.ndarray):
             state = state
 
-        elif isinstance(state, List):
+        elif isinstance(state, list):
             state = np.array(state)
 
         else:
@@ -262,7 +262,7 @@ class DensityMatrix(BaseDensityMatrix):
 
         return ent
 
-    def kraus(self, operator: List[np.ndarray]):
+    def kraus(self, operator: list[np.ndarray]):
         """
         Applies a sequence of Kraus operators on the density matrix
         """
@@ -290,7 +290,7 @@ class DensityMatrix(BaseDensityMatrix):
                     rho += np.kron(a[i], a[j]).dot(state).dot(np.kron(ad[i], ad[j]))
             return DensityMatrix(rho)
 
-    def partial_transpose(self, dims: List[int], axis: int) -> "DensityMatrix":
+    def partial_transpose(self, dims: list[int], axis: int) -> "DensityMatrix":
         """
         Performs partial transpose on the density matrix
         """
@@ -309,7 +309,7 @@ class DensityMatrix(BaseDensityMatrix):
                 "Dimension of system doesn't correspond to dimension of subsystems."
             )
 
-        def term(rho: np.ndarray, i: int, j: int, dims: List[int], axis=0):
+        def term(rho: np.ndarray, i: int, j: int, dims: list[int], axis=0):
             """ """
             a = spsparse.coo_matrix(([1.0], ([0], [0])))
             for i_axis, dim in enumerate(dims):
@@ -331,7 +331,7 @@ class DensityMatrix(BaseDensityMatrix):
             ).value
         )
 
-    def partial_trace(self, dims: List[int], axis: int) -> "DensityMatrix":  # type: ignore[override]
+    def partial_trace(self, dims: list[int], axis: int) -> "DensityMatrix":  # type: ignore[override]
         """ """
 
         state = self.state
@@ -843,7 +843,9 @@ class DensityMatrix(BaseDensityMatrix):
         return switcher.get(argument, "invalid argument choice")
 
     @staticmethod
-    def check_MUB(a: List[np.ndarray], b: List[np.ndarray], verbose: bool = False) -> bool:
+    def check_MUB(
+        a: list[np.ndarray], b: list[np.ndarray], verbose: bool = False
+    ) -> bool:
         dima = [len(item) for item in a]
         dimb = [len(item) for item in b]
 

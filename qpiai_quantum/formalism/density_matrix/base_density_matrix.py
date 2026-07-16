@@ -260,7 +260,7 @@ class BaseDensityMatrix(ABC):
         return float(np.real(fidelity))
 
     def partial_trace(
-        self, qubits_to_keep: list, dims: Optional[list] = None
+        self, qubits_to_keep: list, dims: list | None = None
     ) -> np.ndarray:
         """
         Compute the partial trace over specified qubits.

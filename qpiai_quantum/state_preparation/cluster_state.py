@@ -71,7 +71,7 @@ class ClusterStateGenerator(QuantumAlgorithm):
 
         return self.circuit
 
-    def get_expected_outcomes(self) -> Dict[str, float]:
+    def get_expected_outcomes(self) -> dict[str, float]:
         """
         Get the theoretical probability distribution for the cluster state
         in the computational (Z) basis.
@@ -133,10 +133,10 @@ class ClusterStateGenerator(QuantumAlgorithm):
 
     @staticmethod
     def compare_different_sizes(
-        qubit_range: List[int] = [2, 3, 4],
+        qubit_range: list[int] = [2, 3, 4],
         shots: int = 1024,
-        backend: Optional[Backend] = None,
-    ) -> Dict[int, BaseQuantumResult]:
+        backend: Backend | None = None,
+    ) -> dict[int, BaseQuantumResult]:
         """
         Compare cluster states of different sizes.
         """

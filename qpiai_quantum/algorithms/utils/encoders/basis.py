@@ -7,9 +7,9 @@ from ....circuit import Circuit
 
 def basis_encode(
     data: np.ndarray,
-    circuit: Optional[Circuit] = None,
-    qubits: Optional[List[int]] = None,
-) -> Tuple[Circuit, List[int]]:
+    circuit: Circuit | None = None,
+    qubits: list[int] | None = None,
+) -> tuple[Circuit, list[int]]:
     """
     Encode classical data into quantum states using basis encoding.
 

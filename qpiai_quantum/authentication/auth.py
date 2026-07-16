@@ -19,8 +19,7 @@ class QpiAIQuantumAuth:
             raise APIKeyInvalidError()
 
     @staticmethod
-    def login(api_key: Optional[str]) -> str:
-
+    def login(api_key: str | None) -> str:
         if api_key is None:
             raise APIKeyInvalidError()
         if not isinstance(api_key, str):
@@ -40,7 +39,6 @@ class QpiAIQuantumAuth:
 
     @staticmethod
     def verify_api_key() -> bool:
-
         try:
             QpiAIQuantumAuth.me()
             return True
@@ -51,7 +49,6 @@ class QpiAIQuantumAuth:
 
     @staticmethod
     def logout() -> str:
-
         try:
             if get_user() is None:
                 raise UserNotFoundError()
@@ -61,8 +58,7 @@ class QpiAIQuantumAuth:
             raise AuthError(str(e))
 
     @staticmethod
-    def me(api_key: Optional[str] = None) -> dict:
-
+    def me(api_key: str | None = None) -> dict:
         try:
             if api_key is None:
                 user = get_user()
@@ -97,7 +93,6 @@ class QpiAIQuantumAuth:
 
     @staticmethod
     def list_compute_resources(display: bool = True):
-
         try:
             user = get_user()
             if user is None:
@@ -130,7 +125,6 @@ class QpiAIQuantumAuth:
 
     @staticmethod
     def _display_resources(resources: list):
-
         if not resources:
             print("No compute resources available.")
             return

@@ -20,8 +20,8 @@ class Statevector:
 
     def __init__(
         self,
-        data: Union[List, np.ndarray, Circuit, "Statevector"],
-        dims: Optional[List[int]] = None,
+        data: Union[list, np.ndarray, Circuit, "Statevector"],
+        dims: list[int] | None = None,
         experiment_name: str = "Default Experiment",
         device_name: str = "QpiAI-QSV-Local",
     ):
@@ -64,7 +64,7 @@ class Statevector:
 
         self.dims = dims or [2] * self.num_qubits
 
-    def _init_from_array(self, data: Union[List, np.ndarray]):
+    def _init_from_array(self, data: list | np.ndarray):
         """Initialize from array or list."""
         # Handle nested list format [[c1], [c2], ...]
         if isinstance(data, list) and len(data) > 0:
@@ -238,7 +238,7 @@ class Statevector:
         """
         return np.abs(self.data) ** 2
 
-    def probabilities_dict(self, decimals: Optional[int] = None) -> dict:
+    def probabilities_dict(self, decimals: int | None = None) -> dict:
         """
         Get measurement probabilities as a dictionary.
 
@@ -305,7 +305,7 @@ class Statevector:
         rho = np.outer(self.data, np.conj(self.data))
         return DensityMatrix(rho)
 
-    def evolve(self, other: Union[Circuit, np.ndarray]) -> "Statevector":
+    def evolve(self, other: Circuit | np.ndarray) -> "Statevector":
         """
         Evolve the statevector by a circuit or unitary matrix.
 

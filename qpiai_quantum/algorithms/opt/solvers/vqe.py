@@ -1,4 +1,5 @@
-from typing import Any, Dict, Optional, Callable, Union, List, Tuple
+from typing import Any, Dict, Optional, Union, List, Tuple
+from collections.abc import Callable
 import numpy as np
 import warnings
 from dataclasses import dataclass
@@ -28,13 +29,13 @@ from ...utils.optimizers import (
 class VQEResult:
     """Result from VQE execution. Supports both attribute and dictionary-like access."""
 
-    optimal_parameters: List[float]
+    optimal_parameters: list[float]
     optimal_energy: float
-    energy_history: List[float]
-    param_history: List[List[float]]
+    energy_history: list[float]
+    param_history: list[list[float]]
     bitstring: str
-    counts: Dict[str, int]
-    metadata: Dict[str, Any]
+    counts: dict[str, int]
+    metadata: dict[str, Any]
 
     def __getitem__(self, key: str) -> Any:
         """Enable dictionary-like access for backward compatibility."""
@@ -110,10 +111,10 @@ class VQESolver(QuantumAlgorithm):
         self,
         n_qubits: int,
         hamiltonian: Any = None,
-        ansatz: Union[str, Callable] = "standard",
+        ansatz: str | Callable = "standard",
         optimizer: str = "adam",
         max_iterations: int = 100,
-        initial_point: Optional[np.ndarray] = None,
+        initial_point: np.ndarray | None = None,
         verbose: bool = True,
         name: str = "VQE",
     ):
@@ -125,11 +126,11 @@ class VQESolver(QuantumAlgorithm):
         self.initial_point = initial_point
         self.hamiltonian = hamiltonian
         self.verbose = verbose
-        self._executor: Optional[JobManager] = None
+        self._executor: JobManager | None = None
         self.shots = 1024
         self.description = "Variational Quantum Eigensolver for finding ground state energies (verbose progress printing is enabled by default)"
 
-    def build_circuit(self, parameters: Optional[np.ndarray] = None) -> Circuit:
+    def build_circuit(self, parameters: np.ndarray | None = None) -> Circuit:
         """
         Public method: Build the VQE circuit with given parameters.
 
@@ -178,7 +179,7 @@ class VQESolver(QuantumAlgorithm):
     def _build_circuit(
         self,
         ansatz: Circuit,
-        parameters: Optional[np.ndarray] = None,
+        parameters: np.ndarray | None = None,
         measure: bool = True,
     ) -> Circuit:
         """
@@ -229,15 +230,15 @@ class VQESolver(QuantumAlgorithm):
             raise ValueError(f"Error building circuit: {str(e)}")
 
     def _group_hamiltonian_terms(
-        self, terms: List[Tuple[List[Tuple[int, str]], float]]
-    ) -> List[Tuple[Dict[int, str], List[Tuple[List[Tuple[int, str]], float]]]]:
+        self, terms: list[tuple[list[tuple[int, str]], float]]
+    ) -> list[tuple[dict[int, str], list[tuple[list[tuple[int, str]], float]]]]:
         """
         Group Hamiltonian terms into qubit-wise commuting sets.
         Each group is a tuple: (basis_dict, terms_in_group)
         where basis_dict maps qubit_idx -> 'X' | 'Y' | 'Z'.
         """
-        groups: List[
-            Tuple[Dict[int, str], List[Tuple[List[Tuple[int, str]], float]]]
+        groups: list[
+            tuple[dict[int, str], list[tuple[list[tuple[int, str]], float]]]
         ] = []
         for ops, coeff in terms:
             if not ops:
@@ -269,8 +270,8 @@ class VQESolver(QuantumAlgorithm):
 
     def _compute_statevector_expectation(
         self,
-        statevector: Union[List, np.ndarray],
-        terms: List[Tuple[List[Tuple[int, str]], float]],
+        statevector: list | np.ndarray,
+        terms: list[tuple[list[tuple[int, str]], float]],
     ) -> float:
         """
         Compute expectation value exactly from a complex statevector.
@@ -312,7 +313,7 @@ class VQESolver(QuantumAlgorithm):
         return expectation
 
     def _compute_counts_expectation(
-        self, counts: Dict[str, int], terms: List[Tuple[List[Tuple[int, str]], float]]
+        self, counts: dict[str, int], terms: list[tuple[list[tuple[int, str]], float]]
     ) -> float:
         """
         Compute expectation value for a list of terms using computational basis counts.
@@ -458,9 +459,9 @@ class VQESolver(QuantumAlgorithm):
     def _execute_circuit(
         self,
         circuit: Circuit,
-        method: Optional[str] = None,
-        device_name: Optional[str] = None,
-        shots: Optional[int] = None,
+        method: str | None = None,
+        device_name: str | None = None,
+        shots: int | None = None,
         **kwargs,
     ) -> BaseQuantumResult:
         """
@@ -626,7 +627,7 @@ class VQESolver(QuantumAlgorithm):
         initial_point: np.ndarray,
         n_params: int,
         **kwargs,
-    ) -> Tuple[np.ndarray, float, Dict[str, Any]]:
+    ) -> tuple[np.ndarray, float, dict[str, Any]]:
         """
         Run optimization loop to minimize objective function.
 
@@ -1109,7 +1110,7 @@ class VQESolver(QuantumAlgorithm):
             },
         )
 
-    def to_dict(self, result: "VQEResult") -> Dict[str, Any]:
+    def to_dict(self, result: "VQEResult") -> dict[str, Any]:
         """
         Convert VQEResult to dictionary format for backward compatibility.
 

@@ -682,9 +682,9 @@ class Plotter:
     def draw_n_qubit_gate(
         self,
         x: float,
-        qubits: List[int],
+        qubits: list[int],
         label: str,
-        params: Optional[List[float]] = None,
+        params: list[float] | None = None,
         y_offset=0,
     ):
         """Draw a gate that operates on n qubits with optional parameters."""

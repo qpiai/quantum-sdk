@@ -9,7 +9,6 @@ from qpiai_quantum.jobmanager import Backend
 
 class WStateGenerator(QuantumAlgorithm):
     def __init__(self, num_qubits: int = 3):
-
         if num_qubits < 3:
             raise ValueError(
                 f"W state requires at least 3 qubits, got {num_qubits}. "
@@ -24,7 +23,6 @@ class WStateGenerator(QuantumAlgorithm):
         )
 
     def build_circuit(self, measure: bool = True, **kwargs) -> Circuit:
-
         num_classical = self.num_qubits if measure else 0
         self.circuit = Circuit(self.num_qubits, num_classical)
 
@@ -37,7 +35,6 @@ class WStateGenerator(QuantumAlgorithm):
         return self.circuit
 
     def _build_w_state_recursive(self):
-
         n = self.num_qubits
 
         # Start with |10...0⟩ (leftmost qubit in |1⟩)
@@ -58,8 +55,7 @@ class WStateGenerator(QuantumAlgorithm):
         for k in range(n - 1):
             self.circuit.cx(k + 1, k)  # type: ignore
 
-    def get_expected_outcomes(self) -> Dict[str, float]:
-
+    def get_expected_outcomes(self) -> dict[str, float]:
         expected = {}
         prob = 1.0 / self.num_qubits
 
@@ -74,7 +70,6 @@ class WStateGenerator(QuantumAlgorithm):
     def verify_entanglement(
         self, result: BaseQuantumResult, threshold: float = 0.2
     ) -> bool:
-
         counts = result.get()["counts"]
         total_shots = sum(counts.values())
 
@@ -101,10 +96,9 @@ class WStateGenerator(QuantumAlgorithm):
 
         return True
 
-    def count_excitations(self, result: BaseQuantumResult) -> Dict[int, int]:
-
+    def count_excitations(self, result: BaseQuantumResult) -> dict[int, int]:
         counts = result.get()["counts"]
-        excitation_counts: Dict[int, int] = {}
+        excitation_counts: dict[int, int] = {}
 
         for state, count in counts.items():
             num_ones = state.count("1")
@@ -113,7 +107,6 @@ class WStateGenerator(QuantumAlgorithm):
         return excitation_counts
 
     def calculate_robustness(self, particle_loss_count: int = 1) -> float:
-
         if particle_loss_count >= self.num_qubits:
             return 0.0
 
@@ -127,8 +120,7 @@ class WStateGenerator(QuantumAlgorithm):
 
     def compare_with_ghz_robustness(
         self, particle_loss_count: int = 1
-    ) -> Dict[str, float]:
-
+    ) -> dict[str, float]:
         w_robustness = self.calculate_robustness(particle_loss_count)
 
         ghz_robustness = 0.0
@@ -145,11 +137,9 @@ class WStateGenerator(QuantumAlgorithm):
 
 
 def create_w_state(num_qubits: int = 3) -> WStateGenerator:
-
     return WStateGenerator(num_qubits=num_qubits)
 
 
 def get_w_circuit(num_qubits: int = 3, measure: bool = True) -> Circuit:
-
     w = WStateGenerator(num_qubits=num_qubits)
     return w.build_circuit(measure=measure)

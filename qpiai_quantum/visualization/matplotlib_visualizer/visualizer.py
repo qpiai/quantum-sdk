@@ -54,7 +54,7 @@ class MatplotlibVisualizer:
 
         # Track the layer index for each qubit to form strict vertical columns
         layer_per_qubit = [0] * (icr.num_qubits + icr.num_clbits)
-        layers: List[Any] = []
+        layers: list[Any] = []
 
         for op in icr.evolve:
             op_dict = op.to_json()
@@ -153,7 +153,7 @@ class MatplotlibVisualizer:
         num_chunks = (
             int(max_x_pos // break_point) + 1 if operations_with_positions else 1
         )
-        broken_circuits: List[Any] = [[] for _ in range(num_chunks)]
+        broken_circuits: list[Any] = [[] for _ in range(num_chunks)]
         for op_pos in operations_with_positions:
             op, x_pos = op_pos
             chunk_idx = int(x_pos // break_point)

@@ -1,4 +1,5 @@
-from typing import Any, Dict, List, Optional, Tuple, Union, Callable
+from typing import Any, Dict, List, Optional, Tuple, Union
+from collections.abc import Callable
 from qpiai_quantum.results.base_result import BaseQuantumResult
 import numpy as np
 import warnings
@@ -28,17 +29,17 @@ from ...utils.optimizers import (
 class QAOAResult:
     """Result from QAOA execution. Supports both attribute and dictionary-like access."""
 
-    optimal_parameters: List[float]
+    optimal_parameters: list[float]
     optimal_energy: float
-    energy_history: List[float]
-    param_history: List[List[float]]
+    energy_history: list[float]
+    param_history: list[list[float]]
     solution: Any
     bitstring: str
-    counts: Dict[str, int]
+    counts: dict[str, int]
     is_valid: bool
     validation_message: str
-    quality_metrics: Dict[str, Any]
-    metadata: Dict[str, Any]
+    quality_metrics: dict[str, Any]
+    metadata: dict[str, Any]
 
     def __getitem__(self, key: str) -> Any:
         """Enable dictionary-like access for backward compatibility."""
@@ -78,8 +79,8 @@ class QAOASolver(QuantumAlgorithm):
         layers: int = 1,
         optimizer: str = "COBYLA",
         max_iterations: int = 100,
-        initial_params: Optional[np.ndarray] = None,
-        ansatz: Union[str, Callable] = "standard",
+        initial_params: np.ndarray | None = None,
+        ansatz: str | Callable = "standard",
         mixer: str = "x",
         verbose: bool = True,
         name: str = "QAOA",
@@ -95,13 +96,11 @@ class QAOASolver(QuantumAlgorithm):
         self.mixer = mixer
         self.problem = problem
         self.verbose = verbose
-        self._executor: Optional[JobManager] = None
+        self._executor: JobManager | None = None
         self.shots = 1024
-        self.description = (
-            "Quantum Approximate Optimization Algorithm for combinatorial problems (verbose progress printing is enabled by default)"
-        )
+        self.description = "Quantum Approximate Optimization Algorithm for combinatorial problems (verbose progress printing is enabled by default)"
 
-    def build_circuit(self, parameters: Optional[np.ndarray] = None) -> Circuit:
+    def build_circuit(self, parameters: np.ndarray | None = None) -> Circuit:
         """
         Public method: Build the QAOA circuit with given parameters.
 
@@ -163,7 +162,7 @@ class QAOASolver(QuantumAlgorithm):
         return ansatz
 
     def _build_circuit(
-        self, ansatz: Circuit, parameters: Optional[np.ndarray] = None
+        self, ansatz: Circuit, parameters: np.ndarray | None = None
     ) -> Circuit:
         """
         Private method: Apply parameters to ansatz and build executable circuit.
@@ -313,9 +312,9 @@ class QAOASolver(QuantumAlgorithm):
     def _execute_circuit(
         self,
         circuit: Circuit,
-        method: Optional[str] = None,
-        device_name: Optional[str] = None,
-        shots: Optional[int] = None,
+        method: str | None = None,
+        device_name: str | None = None,
+        shots: int | None = None,
         **kwargs,
     ) -> BaseQuantumResult:
         """
@@ -433,7 +432,7 @@ class QAOASolver(QuantumAlgorithm):
         initial_point: np.ndarray,
         n_params: int,
         **kwargs,
-    ) -> Tuple[np.ndarray, float, Dict[str, Any]]:
+    ) -> tuple[np.ndarray, float, dict[str, Any]]:
         """
         Run optimization loop to minimize objective function.
 
@@ -615,7 +614,7 @@ class QAOASolver(QuantumAlgorithm):
         self.max_iterations = max_iter
         return self
 
-    def with_ansatz(self, ansatz: Union[str, Callable]):
+    def with_ansatz(self, ansatz: str | Callable):
         """Set ansatz and return self for method chaining."""
         self.ansatz = ansatz
         return self
@@ -834,7 +833,7 @@ class QAOASolver(QuantumAlgorithm):
             },
         )
 
-    def to_dict(self, result: "QAOAResult") -> Dict[str, Any]:
+    def to_dict(self, result: "QAOAResult") -> dict[str, Any]:
         """
         Convert QAOAResult to dictionary format for backward compatibility.
 

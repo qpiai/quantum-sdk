@@ -19,8 +19,8 @@ except ImportError:
 class DensityMatrix(BaseDensityMatrix):
     def __init__(
         self,
-        data: Union[List, np.ndarray, Circuit, "DensityMatrix"],
-        dims: Optional[List[int]] = None,
+        data: Union[list, np.ndarray, Circuit, "DensityMatrix"],
+        dims: list[int] | None = None,
         experiment_name: str = "Default Experiment",
         device_name: str = "QpiAI-QSV-Local",
     ):
@@ -47,7 +47,7 @@ class DensityMatrix(BaseDensityMatrix):
         """Return the number of qubits."""
         return self.num_qubits
 
-    def _init_from_array(self, data: Union[List, np.ndarray]):
+    def _init_from_array(self, data: list | np.ndarray):
         """Initialize from array."""
         # Handle nested list format
         if isinstance(data, list) and len(data) > 0:
@@ -262,7 +262,7 @@ class DensityMatrix(BaseDensityMatrix):
         """
         return np.real(np.diag(self.data))
 
-    def probabilities_dict(self, decimals: Optional[int] = None) -> dict:
+    def probabilities_dict(self, decimals: int | None = None) -> dict:
         """
         Get measurement probabilities as a dictionary.
 

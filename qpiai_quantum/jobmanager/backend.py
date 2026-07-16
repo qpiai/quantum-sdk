@@ -10,7 +10,7 @@ class Backend(Enum):
     TENSOR_NETWORK_SIMULATOR_CPU = "QpiAI-QTN-Simulator"
     LOCAL_SIMULATOR = "QpiAI-QSV-Local"
 
-    def to_method_and_device(self) -> Tuple[str, str]:
+    def to_method_and_device(self) -> tuple[str, str]:
         """
         Convert Backend enum to method and device name.
         """

@@ -5,7 +5,8 @@ Simon's algorithm finds hidden bitstring patterns with exponential speedup
 over classical algorithms.
 """
 
-from typing import Optional, List, Callable
+from typing import Optional, List
+from collections.abc import Callable
 from qpiai_quantum.circuit import Circuit
 from qpiai_quantum.jobmanager.job_result import JobResult
 from .base import QuantumAlgorithm
@@ -16,8 +17,8 @@ class SimonAlgorithm(QuantumAlgorithm):
     def __init__(
         self,
         num_qubits: int,
-        hidden_string: Optional[str] = None,
-        oracle_function: Optional[Callable] = None,
+        hidden_string: str | None = None,
+        oracle_function: Callable | None = None,
     ):
         """
         Initialize Simon's algorithm.
@@ -34,7 +35,7 @@ class SimonAlgorithm(QuantumAlgorithm):
             "Simon's Algorithm - find hidden bitstring with exponential speedup"
         )
 
-    def build_circuit(self, hidden_string: Optional[str] = None) -> Circuit:
+    def build_circuit(self, hidden_string: str | None = None) -> Circuit:
         """
         Build Simon's algorithm circuit.
 
@@ -126,7 +127,7 @@ class SimonAlgorithm(QuantumAlgorithm):
                 if k != first_one and reversed_s[k] == "1":
                     self.circuit.cx(first_one, n + k)
 
-    def find_hidden_string(self, max_attempts: Optional[int] = None) -> str:
+    def find_hidden_string(self, max_attempts: int | None = None) -> str:
         """
         Find the hidden bitstring by running the algorithm multiple times.
 
@@ -149,7 +150,7 @@ class SimonAlgorithm(QuantumAlgorithm):
         if max_attempts is None:
             max_attempts = 10 * n
 
-        measurements: List[str] = []
+        measurements: list[str] = []
         zero_str = "0" * n
 
         for _ in range(max_attempts):
@@ -176,7 +177,7 @@ class SimonAlgorithm(QuantumAlgorithm):
 
         return hidden_string
 
-    def _solve_for_hidden_string(self, measurements: List[str]) -> str:
+    def _solve_for_hidden_string(self, measurements: list[str]) -> str:
         """
         Solve for the hidden string given measurement results.
 

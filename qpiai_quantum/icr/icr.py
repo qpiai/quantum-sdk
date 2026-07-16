@@ -79,9 +79,7 @@ class IntermediateCircuitRepresentation:
 
         if not isinstance(operation, CircuitOperation):
             raise ValueError(
-                "Can only perform CircuitOperation on circuit, not {}".format(
-                    type(operation)
-                )
+                f"Can only perform CircuitOperation on circuit, not {type(operation)}"
             )
 
         self.evolve.append(operation)
@@ -92,9 +90,7 @@ class IntermediateCircuitRepresentation:
         """
 
         if n > len(self.evolve):
-            raise ValueError(
-                "Cannot remove {} nodes from the Circuit Evolution List".format(n)
-            )
+            raise ValueError(f"Cannot remove {n} nodes from the Circuit Evolution List")
 
         while n > 0:
             self.evolve.pop()

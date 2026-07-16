@@ -36,9 +36,9 @@ class StatevectorSimulator(BaseSimulator):
         self,
         circuit: "Circuit",
         shots: int = 1024,
-        seed: Optional[int] = None,
-        name: Optional[str] = None,
-        initial_state: Optional[np.ndarray] = None,
+        seed: int | None = None,
+        name: str | None = None,
+        initial_state: np.ndarray | None = None,
     ) -> QasmSimulatorResult:
         """
         Execute the given circuit locally using statevector simulation.
@@ -68,7 +68,9 @@ class StatevectorSimulator(BaseSimulator):
                     f"Initial state dimension {len(initial_state)} does not match circuit qubit dimension {dim}."
                 )
             if not np.isclose(np.linalg.norm(initial_state), 1.0):
-                raise ValueError("Initial state vector must be normalized (norm must be 1.0).")
+                raise ValueError(
+                    "Initial state vector must be normalized (norm must be 1.0)."
+                )
             state = np.array(initial_state, dtype=complex)
         else:
             # Initialize state to |0...0>
@@ -194,7 +196,7 @@ class StatevectorSimulator(BaseSimulator):
         n_cbits: int,
         measure_map: dict[int, int],
         shots: int,
-        seed: Optional[int] = None,
+        seed: int | None = None,
     ) -> dict[str, int]:
         """Sample measurement outcomes."""
         probs = np.abs(state) ** 2

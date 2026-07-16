@@ -12,7 +12,7 @@ from typing import List, Dict, Any
 
 class QASM2:
     @staticmethod
-    def generate(circuit: Circuit) -> str | List[str]:
+    def generate(circuit: Circuit) -> str | list[str]:
         """
         Generates an OpenQASM 2.0 representation of the given circuit.
 
@@ -29,7 +29,7 @@ class QASM2:
         qasm_lines.append(f"creg c[{circuit.icr.num_clbits}];")
 
         for op in circuit.icr.evolve:
-            operation: Dict[str, Any] = op.to_json()
+            operation: dict[str, Any] = op.to_json()
 
             operation["gate_name"] = operation["gate_name"].lower()
             if operation["gate_name"] == "measure":

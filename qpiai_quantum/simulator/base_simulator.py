@@ -34,8 +34,8 @@ class BaseSimulator(ABC):
         self,
         circuit: "Circuit",
         shots: int = 1024,
-        seed: Optional[int] = None,
-        name: Optional[str] = None,
+        seed: int | None = None,
+        name: str | None = None,
     ) -> BaseQuantumResult:
         """
         Execute the given circuit and return a result object.

@@ -13,7 +13,7 @@ class OperationType(Enum):
 
 class CircuitOperation:
     _registry = {}
-    order: Optional[List["CircuitOperation"]]
+    order: list["CircuitOperation"] | None
 
     def __init_subclass__(cls):
         """
@@ -43,9 +43,9 @@ class CircuitOperation:
         self,
         operation_type: OperationType,
         gate_name: str,
-        qubits: List[int],
-        params: Optional[List[float]] = None,
-        clbits: Optional[List[int]] = None,
+        qubits: list[int],
+        params: list[float] | None = None,
+        clbits: list[int] | None = None,
     ):
         self.operation_type = operation_type
         self.gate_name = gate_name
@@ -53,7 +53,7 @@ class CircuitOperation:
         self.params = params
         self.clbits = clbits
 
-    def to_json(self) -> Dict[str, Any]:
+    def to_json(self) -> dict[str, Any]:
         result = {
             "operation_type": self.operation_type.value,
             "gate_name": self.gate_name,
@@ -199,7 +199,7 @@ class RZZGate(CircuitOperation):
             CXGate(qubit1, qubit2),
         ]
 
-    def to_json(self) -> Dict[str, Any]:
+    def to_json(self) -> dict[str, Any]:
         result = super().to_json()
         order = self.order
         if order is not None:
@@ -227,7 +227,7 @@ class CSwapGate(CircuitOperation):
 
 
 class MCXGate(CircuitOperation):
-    def __init__(self, control_qubits: List[int], target_qubit: int):
+    def __init__(self, control_qubits: list[int], target_qubit: int):
         super().__init__(
             OperationType.N_QUBIT_NON_PARAMETRIC,
             "MCX",
@@ -242,7 +242,7 @@ class MeasureOperation(CircuitOperation):
 
 
 class BarrierOperation(CircuitOperation):
-    def __init__(self, *qubits: List[int]):
+    def __init__(self, *qubits: list[int]):
         super().__init__(OperationType.BARRIER, "Barrier", qubits)
 
 
@@ -251,8 +251,8 @@ class Operation(CircuitOperation):
     def __init__(
         self,
         name: str,
-        qubits: List[int],
-        params: Optional[List[float]] = None,
-        clbits: Optional[List[int]] = None,
+        qubits: list[int],
+        params: list[float] | None = None,
+        clbits: list[int] | None = None,
     ):
         super().__init__(OperationType.OPERATION, name, qubits, params, clbits)

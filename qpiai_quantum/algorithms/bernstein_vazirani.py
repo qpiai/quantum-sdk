@@ -35,7 +35,7 @@ class BernsteinVazirani(QuantumAlgorithm):
         >>> print(result.get()["counts"])
     """
 
-    def __init__(self, num_qubits: int, hidden_string: Optional[str] = None):
+    def __init__(self, num_qubits: int, hidden_string: str | None = None):
         super().__init__(num_qubits=num_qubits, name="Bernstein-Vazirani")
         self.hidden_string = hidden_string
         self.description = (
@@ -43,7 +43,7 @@ class BernsteinVazirani(QuantumAlgorithm):
             "in a single query via phase kickback"
         )
 
-    def build_circuit(self, hidden_string: Optional[str] = None) -> Circuit:
+    def build_circuit(self, hidden_string: str | None = None) -> Circuit:
         """
         Build the Bernstein-Vazirani circuit.
 
@@ -183,7 +183,7 @@ class BernsteinVazirani(QuantumAlgorithm):
 
         return hidden_string
 
-    def get_theoretical_result(self) -> Dict[str, Any]:
+    def get_theoretical_result(self) -> dict[str, Any]:
         """
         Get the theoretically expected measurement outcome.
 

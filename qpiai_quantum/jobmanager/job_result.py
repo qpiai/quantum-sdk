@@ -25,22 +25,22 @@ class JobResult(BaseQuantumResult):
 
     def __init__(
         self,
-        name: Optional[str] = None,
-        counts: Optional[Dict[str, int]] = None,
-        statevector: Optional[List[List[complex]]] = None,
-        probabilities: Optional[Dict[str, float]] = None,
-        density_matrix: Optional[List[List[float]]] = None,
-        message: Optional[str] = "Job executed successfully",
+        name: str | None = None,
+        counts: dict[str, int] | None = None,
+        statevector: list[list[complex]] | None = None,
+        probabilities: dict[str, float] | None = None,
+        density_matrix: list[list[float]] | None = None,
+        message: str | None = "Job executed successfully",
         execution_time: float = 0.0,
         cpu_usage: float = 0.0,
         memory_usage: float = 0.0,
         gpu_memory_usage: float = 0.0,
-        shots: Optional[int] = 0,
-        job_id: Optional[str] = None,
-        job_status: Optional[str] = None,
-        method: Optional[str] = None,
+        shots: int | None = 0,
+        job_id: str | None = None,
+        job_status: str | None = None,
+        method: str | None = None,
         credits_used: int = 0,
-        job_metadata: Optional[Dict[str, Any]] = None,
+        job_metadata: dict[str, Any] | None = None,
     ):
         self.name = name
         self._counts = counts
@@ -54,7 +54,7 @@ class JobResult(BaseQuantumResult):
         self.gpu_memory_usage = gpu_memory_usage
         self._shots = shots
         self._job_id = job_id
-        self._job_status: Optional[str] = job_status or "completed"
+        self._job_status: str | None = job_status or "completed"
         # Default to completed for result objects
         self.method = method
         self.credits_used = credits_used
@@ -65,15 +65,15 @@ class JobResult(BaseQuantumResult):
         return self._execution_time
 
     @property
-    def statevector(self) -> Optional[List[List[complex]]]:
+    def statevector(self) -> list[list[complex]] | None:
         return self._statevector
 
     @statevector.setter
-    def statevector(self, value: Optional[List[List[complex]]]):
+    def statevector(self, value: list[list[complex]] | None):
         self._statevector = value
 
     @property
-    def probabilities(self) -> Optional[Dict[str, float]]:
+    def probabilities(self) -> dict[str, float] | None:
         if self._probabilities is not None:
             return self._probabilities
 
@@ -84,49 +84,49 @@ class JobResult(BaseQuantumResult):
         return {outcome: count / total_shots for outcome, count in self._counts.items()}
 
     @probabilities.setter
-    def probabilities(self, value: Optional[Dict[str, float]]):
+    def probabilities(self, value: dict[str, float] | None):
         self._probabilities = value
 
     @property
-    def shots(self) -> Optional[int]:
+    def shots(self) -> int | None:
         return self._shots
 
     @shots.setter
-    def shots(self, value: Optional[int]):
+    def shots(self, value: int | None):
         self._shots = value
 
     @property
-    def counts(self) -> Optional[Dict[str, int]]:
+    def counts(self) -> dict[str, int] | None:
         return self._counts
 
     @counts.setter
-    def counts(self, value: Optional[Dict[str, int]]):
+    def counts(self, value: dict[str, int] | None):
         self._counts = value
 
     @property
-    def job_id(self) -> Optional[str]:
+    def job_id(self) -> str | None:
         """Get the job ID."""
         return self._job_id
 
     @job_id.setter
-    def job_id(self, value: Optional[str]):
+    def job_id(self, value: str | None):
         """Set the job ID."""
         self._job_id = value
 
     @property
-    def job_status(self) -> Optional[str]:
+    def job_status(self) -> str | None:
         """Get the job status."""
         return self._job_status
 
     @job_status.setter
-    def job_status(self, value: Optional[str]):
+    def job_status(self, value: str | None):
         """Set the job status."""
         self._job_status = value
 
     def set_name(self, name: str):
         self.name = name
 
-    def get_job_id(self) -> Optional[str]:
+    def get_job_id(self) -> str | None:
         """
         Get job ID.
 
@@ -138,7 +138,7 @@ class JobResult(BaseQuantumResult):
         """
         return self.job_id
 
-    def get_job_status(self) -> Optional[str]:
+    def get_job_status(self) -> str | None:
         """
         Get job status.
 
@@ -150,8 +150,7 @@ class JobResult(BaseQuantumResult):
         """
         return self.job_status
 
-    def get(self, *param) -> Dict[str, Any]:
-
+    def get(self, *param) -> dict[str, Any]:
         if len(param) == 0:
             return {
                 "name": self.name,
@@ -182,7 +181,6 @@ class JobResult(BaseQuantumResult):
         return res_object
 
     def __repr__(self):
-
         status_info = f", status='{self.job_status}'" if self.job_status else ""
         lines = [f"JobResult(job_id='{self.job_id}'{status_info})"]
 
@@ -219,7 +217,6 @@ class JobResult(BaseQuantumResult):
         return "\n".join(lines)
 
     def to_json(self, indent=2):
-
         import json
 
         def json_encoder(obj):

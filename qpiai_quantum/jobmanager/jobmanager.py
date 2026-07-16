@@ -72,7 +72,7 @@ class JobManager:
             raise AuthenticationError()
         return {"X-Secret-Token": user.api_key}
 
-    def _get_compute_resource_id(self, method: str, device_name: str) -> Optional[str]:
+    def _get_compute_resource_id(self, method: str, device_name: str) -> str | None:
         """
         Get compute resource ID based on method and device_name.
         Maps to the appropriate backend resource name.
@@ -145,7 +145,7 @@ class JobManager:
             logger.warning(f"Error fetching compute resources: {e}")
             return None
 
-    def list_compute_resources(self) -> List[Dict[str, Any]]:
+    def list_compute_resources(self) -> list[dict[str, Any]]:
         """
         List all available compute resources for the authenticated user.
 
@@ -281,9 +281,9 @@ class JobManager:
         need_density_matrix: bool = False,
         device_name: str = "QpiAI-QSV-Simulator",
         circuit_name: str = "circuit",
-        compute_resource_id: Optional[str] = None,
+        compute_resource_id: str | None = None,
         overwrite: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Submit OpenQASM 2.0 circuit for execution.
 
@@ -497,10 +497,10 @@ class JobManager:
         need_statevector: bool = False,
         need_density_matrix: bool = False,
         device_name: str = "QpiAI-QSV-Simulator",
-        circuit_name: Optional[str] = None,
-        compute_resource_id: Optional[str] = None,
+        circuit_name: str | None = None,
+        compute_resource_id: str | None = None,
         overwrite: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Submit Circuit or IntermediateCircuitRepresentation for execution.
 
@@ -545,7 +545,7 @@ class JobManager:
             overwrite=overwrite,
         )
 
-    def get_job_status(self, job_id: str) -> Optional[Dict[str, Any]]:
+    def get_job_status(self, job_id: str) -> dict[str, Any] | None:
         """
         Check status of specific job by its ID.
 
@@ -604,7 +604,7 @@ class JobManager:
         except Exception as e:
             raise JobManagerError(f"Unexpected error while getting job status: {e}")
 
-    def get_current_job(self) -> Optional[Dict[str, Any]]:
+    def get_current_job(self) -> dict[str, Any] | None:
         """
         Get the currently running job for the authenticated user.
 
@@ -658,11 +658,11 @@ class JobManager:
 
     def get_job_history(
         self,
-        period: Optional[str] = None,
-        status: Optional[str] = None,
+        period: str | None = None,
+        status: str | None = None,
         page: int = 1,
         page_size: int = 20,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         List recent jobs for the authenticated user with optional filtering.
 
@@ -726,7 +726,7 @@ class JobManager:
                     raise JobManagerError(f"Status must be one of: {valid_statuses}")
 
             # Build query parameters
-            params: Dict[str, Any] = {"page": page, "page_size": page_size}
+            params: dict[str, Any] = {"page": page, "page_size": page_size}
 
             if period:
                 params["period"] = period
@@ -760,7 +760,7 @@ class JobManager:
         except Exception as e:
             raise JobManagerError(f"Unexpected error while getting job history: {e}")
 
-    def cancel_job(self, job_id: str) -> Dict[str, Any]:
+    def cancel_job(self, job_id: str) -> dict[str, Any]:
         """
         Cancel a running or pending job.
 
@@ -855,7 +855,7 @@ class JobManager:
                 f"Unexpected error while cancelling job {job_id}: {e}"
             )
 
-    def delete_job(self, job_id: str) -> Dict[str, Any]:
+    def delete_job(self, job_id: str) -> dict[str, Any]:
         """
         Delete a job from the system.
 
@@ -927,7 +927,7 @@ class JobManager:
             raise JobManagerError(f"Unexpected error while deleting job {job_id}: {e}")
 
     def get_job_results(
-        self, job_id: str, device_name: Optional[str] = None
+        self, job_id: str, device_name: str | None = None
     ) -> "JobResult":
         """
         Retrieve quantum computation results for a completed job.
@@ -1108,7 +1108,7 @@ class JobManager:
         except Exception as e:
             raise JobManagerError(f"Unexpected error while getting job results: {e}")
 
-    def _extract_s3_path_from_response(self, response_data: Any) -> Optional[str]:
+    def _extract_s3_path_from_response(self, response_data: Any) -> str | None:
         if isinstance(response_data, str) and response_data.startswith("s3://"):
             return response_data
 
@@ -1135,7 +1135,7 @@ class JobManager:
 
         return None
 
-    def _download_s3_result_via_backend(self, s3_path: str) -> Dict[str, Any]:
+    def _download_s3_result_via_backend(self, s3_path: str) -> dict[str, Any]:
         try:
             import requests
         except ImportError:
@@ -1282,10 +1282,10 @@ class JobManager:
 
     def _parse_job_results(
         self,
-        job_result: Dict[str, Any],
+        job_result: dict[str, Any],
         circuit_name: str,
         shots: int,
-        device_name: Optional[str] = None,
+        device_name: str | None = None,
         need_statevector=False,
         need_density_matrix=False,
     ) -> JobResult:
@@ -1426,7 +1426,7 @@ class JobManager:
         need_density_matrix: bool = False,
         device_name: str = "QpiAI-QSV-Simulator",
         circuit_name: str = "circuit",
-        compute_resource_id: Optional[str] = None,
+        compute_resource_id: str | None = None,
         overwrite: bool = False,
         use_events: bool = True,
         timeout: int = 300,
@@ -1516,7 +1516,8 @@ class JobManager:
         else:
             if use_events:
                 logger.warning(
-                    "SSE support is unavailable; falling back to polling for job %s", job_id
+                    "SSE support is unavailable; falling back to polling for job %s",
+                    job_id,
                 )
             result = self._wait_with_polling(
                 job_id,
@@ -1559,7 +1560,7 @@ class JobManager:
         poll_interval: int,
         start_time: float,
         initial_poll_count: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Helper method to wait for job completion using HTTP polling.
 
