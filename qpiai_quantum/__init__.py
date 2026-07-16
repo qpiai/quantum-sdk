@@ -55,6 +55,9 @@ from .algorithms.opt.solvers import VQESolver
 # Quantum information
 from .quantum_info import DensityMatrix, Statevector
 
+# Applications
+from . import applications
+
 # ============================================================================
 # Public API
 # ============================================================================
@@ -90,4 +93,6 @@ __all__ = [
     # Quantum information
     "Statevector",
     "DensityMatrix",
+    # Applications
+    "applications",
 ]

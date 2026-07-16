@@ -71,6 +71,9 @@ docs = [
     "sphinx-rtd-theme",
     "myst-parser",
 ]
+chemistry = [
+    "pyscf; sys_platform != 'win32'",
+]
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
