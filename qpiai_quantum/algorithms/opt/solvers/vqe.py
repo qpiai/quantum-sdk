@@ -127,9 +127,7 @@ class VQESolver(QuantumAlgorithm):
         self.verbose = verbose
         self._executor: Optional[JobManager] = None
         self.shots = 1024
-        self.description = (
-            "Variational Quantum Eigensolver for finding ground state energies (verbose progress printing is enabled by default)"
-        )
+        self.description = "Variational Quantum Eigensolver for finding ground state energies (verbose progress printing is enabled by default)"
 
     def build_circuit(self, parameters: Optional[np.ndarray] = None) -> Circuit:
         """
@@ -178,7 +176,10 @@ class VQESolver(QuantumAlgorithm):
         return ansatz
 
     def _build_circuit(
-        self, ansatz: Circuit, parameters: Optional[np.ndarray] = None
+        self,
+        ansatz: Circuit,
+        parameters: Optional[np.ndarray] = None,
+        measure: bool = True,
     ) -> Circuit:
         """
         Private method: Apply parameters to ansatz and build executable circuit.
@@ -186,6 +187,7 @@ class VQESolver(QuantumAlgorithm):
         Args:
             ansatz: Pre-validated ansatz circuit template
             parameters: Parameter values to apply (optional)
+            measure: Append measurement operations at the end (default: True)
 
         Returns:
             Parameterized circuit ready for execution
@@ -219,11 +221,139 @@ class VQESolver(QuantumAlgorithm):
                     else:
                         circuit.add_operation(op)
 
-            circuit.measure_all()
+            if measure:
+                circuit.measure_all()
             return circuit
 
         except (AttributeError, TypeError, IndexError) as e:
             raise ValueError(f"Error building circuit: {str(e)}")
+
+    def _group_hamiltonian_terms(
+        self, terms: List[Tuple[List[Tuple[int, str]], float]]
+    ) -> List[Tuple[Dict[int, str], List[Tuple[List[Tuple[int, str]], float]]]]:
+        """
+        Group Hamiltonian terms into qubit-wise commuting sets.
+        Each group is a tuple: (basis_dict, terms_in_group)
+        where basis_dict maps qubit_idx -> 'X' | 'Y' | 'Z'.
+        """
+        groups: List[
+            Tuple[Dict[int, str], List[Tuple[List[Tuple[int, str]], float]]]
+        ] = []
+        for ops, coeff in terms:
+            if not ops:
+                continue
+
+            placed = False
+            for group in groups:
+                basis_dict, group_terms = group
+                compatible = True
+                for q, op in ops:
+                    if op == "I":
+                        continue
+                    if q in basis_dict and basis_dict[q] != op:
+                        compatible = False
+                        break
+                if compatible:
+                    for q, op in ops:
+                        if op != "I":
+                            basis_dict[q] = op
+                    group_terms.append((ops, coeff))
+                    placed = True
+                    break
+
+            if not placed:
+                basis_dict = {q: op for q, op in ops if op != "I"}
+                groups.append((basis_dict, [(ops, coeff)]))
+
+        return groups
+
+    def _compute_statevector_expectation(
+        self,
+        statevector: Union[List, np.ndarray],
+        terms: List[Tuple[List[Tuple[int, str]], float]],
+    ) -> float:
+        """
+        Compute expectation value exactly from a complex statevector.
+        """
+        state = np.array(statevector, dtype=complex)
+        n_qubits = int(np.log2(len(state)))
+
+        expectation = 0.0
+        for ops, coeff in terms:
+            if not ops:
+                expectation += coeff
+                continue
+
+            evolved_state = state.copy()
+            for qubit_idx, op_name in ops:
+                if op_name == "I":
+                    continue
+
+                shape = (2 ** (n_qubits - 1 - qubit_idx), 2, 2**qubit_idx)
+                state_tensor = evolved_state.reshape(shape)
+
+                if op_name == "Z":
+                    state_tensor[:, 1, :] *= -1
+                    evolved_state = state_tensor.reshape(-1)
+                elif op_name == "X":
+                    state_tensor = state_tensor[:, [1, 0], :]
+                    evolved_state = state_tensor.reshape(-1)
+                elif op_name == "Y":
+                    new_tensor = np.empty_like(state_tensor)
+                    new_tensor[:, 0, :] = -1j * state_tensor[:, 1, :]
+                    new_tensor[:, 1, :] = 1j * state_tensor[:, 0, :]
+                    evolved_state = new_tensor.reshape(-1)
+                else:
+                    raise ValueError(f"Unknown Pauli operator: {op_name}")
+
+            term_val = np.vdot(state, evolved_state).real
+            expectation += coeff * term_val
+
+        return expectation
+
+    def _compute_counts_expectation(
+        self, counts: Dict[str, int], terms: List[Tuple[List[Tuple[int, str]], float]]
+    ) -> float:
+        """
+        Compute expectation value for a list of terms using computational basis counts.
+        """
+        if not counts:
+            return 0.0
+
+        total_shots = sum(counts.values())
+        if total_shots == 0:
+            return 0.0
+
+        max_qubit_idx = 0
+        for ops, _ in terms:
+            for qi, _ in ops:
+                max_qubit_idx = max(max_qubit_idx, qi)
+        expected_n_qubits = max_qubit_idx + 1
+
+        padded_counts = {}
+        for bitstr, count in counts.items():
+            if len(bitstr) < expected_n_qubits:
+                bitstr = bitstr.zfill(expected_n_qubits)
+            padded_counts[bitstr] = count
+
+        expectation = 0.0
+        for ops, coeff in terms:
+            if not ops:
+                expectation += coeff
+                continue
+
+            term_exp = 0.0
+            for bitstr, count in padded_counts.items():
+                eigenvalue = 1.0
+                for qubit_idx, op_name in ops:
+                    if op_name == "I":
+                        continue
+                    bit = int(bitstr[-(qubit_idx + 1)])
+                    eigenvalue *= 1.0 if bit == 0 else -1.0
+                term_exp += eigenvalue * count
+            expectation += coeff * term_exp / total_shots
+
+        return expectation
 
     def _compute_expectation(self, result: BaseQuantumResult) -> float:
         """
@@ -232,7 +362,7 @@ class VQESolver(QuantumAlgorithm):
         if not result or not result.counts:
             raise ValueError("Invalid execution result")
 
-        counts = {k: int(v) for k, v in result.counts.items()}
+        counts = result.counts
 
         if self.hamiltonian is None:
             raise ValueError("Hamiltonian not set")
@@ -268,7 +398,6 @@ class VQESolver(QuantumAlgorithm):
             term_exp = 0.0
             for bitstr, count in counts.items():
                 eigenvalue = 1.0
-                bitstr = str(bitstr)
                 for qubit_idx, op_name in ops:
                     bit = int(bitstr[-(qubit_idx + 1)])
                     if op_name == "Z":
@@ -284,7 +413,7 @@ class VQESolver(QuantumAlgorithm):
                 term_exp += eigenvalue * count
             expectation += coeff * term_exp / total_shots
 
-        return float(expectation)
+        return expectation
 
     def _compute_gradient(
         self, params: np.ndarray, cost_function: Callable[[np.ndarray], float]
@@ -830,18 +959,73 @@ class VQESolver(QuantumAlgorithm):
             params = np.random.uniform(0, 2 * np.pi, n_params)
             self.initial_point = params
 
+        # Check if Hamiltonian has X/Y terms
+        terms = self.hamiltonian.get_hamiltonian_terms()
+        has_xy = any(any(op in ["X", "Y"] for _, op in ops) for ops, _ in terms)
+
+        identity_constant = sum(coeff for ops, coeff in terms if not ops)
+        active_terms = [t for t in terms if t[0]]
+
+        if has_xy and method != "statevector":
+            grouped_terms = self._group_hamiltonian_terms(active_terms)
+        else:
+            grouped_terms = []
+
         def objective(theta: np.ndarray) -> float:
             """Compute energy for given parameters."""
-            circuit = self._build_circuit(ansatz, theta)
-            result = self._execute_circuit(
-                circuit,
-                method=method,
-                device_name=device_name,
-                shots=shots,
-                experiment_name=experiment_name,
-                reverse_bits=reverse_bits,
-            )
-            return self._compute_expectation(result)
+            if method == "statevector":
+                circuit = self._build_circuit(ansatz, theta, measure=False)
+                result = self._execute_circuit(
+                    circuit,
+                    method=method,
+                    device_name=device_name,
+                    shots=shots,
+                    experiment_name=experiment_name,
+                    reverse_bits=reverse_bits,
+                )
+                if not hasattr(result, "statevector") or result.statevector is None:
+                    raise RuntimeError(
+                        "Simulator did not return a statevector in statevector mode."
+                    )
+                return self._compute_statevector_expectation(result.statevector, terms)
+
+            elif has_xy:
+                total_energy = identity_constant
+                for basis_dict, group_terms in grouped_terms:
+                    circuit = self._build_circuit(ansatz, theta, measure=False)
+                    for q, op in basis_dict.items():
+                        if op == "X":
+                            circuit.h(q)
+                        elif op == "Y":
+                            circuit.sdg(q)
+                            circuit.h(q)
+                    circuit.measure_all()
+
+                    result = self._execute_circuit(
+                        circuit,
+                        method=method,
+                        device_name=device_name,
+                        shots=shots,
+                        experiment_name=experiment_name,
+                        reverse_bits=reverse_bits,
+                    )
+                    counts = result.counts if result.counts else {}
+                    total_energy += self._compute_counts_expectation(
+                        counts, group_terms
+                    )
+                return total_energy
+
+            else:
+                circuit = self._build_circuit(ansatz, theta, measure=True)
+                result = self._execute_circuit(
+                    circuit,
+                    method=method,
+                    device_name=device_name,
+                    shots=shots,
+                    experiment_name=experiment_name,
+                    reverse_bits=reverse_bits,
+                )
+                return self._compute_expectation(result)
 
         # Run optimization (info is printed in _optimize_parameters)
         opt_result = self._optimize_parameters(
@@ -887,11 +1071,7 @@ class VQESolver(QuantumAlgorithm):
             reverse_bits=reverse_bits,
         )
 
-        final_counts = (
-            {k: int(v) for k, v in final_result.counts.items()}
-            if final_result.counts
-            else {}
-        )
+        final_counts = final_result.counts if final_result.counts else {}
 
         # Handle empty counts case
         if final_counts:
@@ -907,7 +1087,7 @@ class VQESolver(QuantumAlgorithm):
 
         return VQEResult(
             optimal_parameters=best_params.tolist(),
-            optimal_energy=float(best_energy),
+            optimal_energy=best_energy,
             energy_history=opt_info.get("history", []),
             param_history=[p.tolist() for p in opt_info.get("param_history", [])],
             bitstring=best_bitstring,
@@ -945,6 +1125,6 @@ class VQESolver(QuantumAlgorithm):
             "energy_history": result.energy_history,
             "param_history": result.param_history,
             "bitstring": result.bitstring,
-            "counts": {k: int(v) for k, v in result.counts.items()},
+            "counts": result.counts,
             "metadata": result.metadata,
         }
