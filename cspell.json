@@ -67,6 +67,7 @@
     "ipykernel",
     "codespell",
     "pyspelling",
+    "pyscf",
     "lbfgs",
     "rhobeg",
     "rhoend",
