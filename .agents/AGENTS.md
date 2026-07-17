@@ -27,6 +27,7 @@ This repository contains the **QpiAI Quantum SDK**, a comprehensive Python-based
 4. **Code Quality**: Keep code modular. Respect the existing formatting rules as defined in `pyproject.toml`.
 5. **Core Abstractions**: Be cautious when modifying core abstractions like `Circuit`, `CircuitOperation`, or simulation backends. Avoid breaking changes as many algorithms depend on these foundational classes.
 6. **Commit Message Conventions**: Always write commit messages that adhere to the Conventional Commits specification (e.g., `feat:`, `fix:`, `refactor:`, `docs:`, `test:`). Clearly describe the scope, nature of the changes, and reference any relevant issue numbers (e.g., `Closes #123`).
+7. **Circuit Gate API**: Use public lowercase gate methods (e.g., `circuit.h(0)`, `circuit.cx(0, 1)`) instead of uppercase dynamic methods (e.g., `circuit.H()`, `circuit.CX()`). The lowercase methods are the statically typed, validated public API, whereas the uppercase methods are dynamically bound at runtime, which breaks static type checking (mypy) and IDE completions.
 
 ## Key Abstractions
 

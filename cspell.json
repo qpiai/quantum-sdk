@@ -251,7 +251,16 @@
     "tracecov",
     "ndarray",
     "xaxis",
-    "yaxis"
+    "yaxis",
+    "bravyi",
+    "kitaev",
+    "uccsd",
+    "Barkoutsos",
+    "Hartree",
+    "Fock",
+    "ferm",
+    "ijab",
+    "uncompute"
   ],
   "ignorePaths": [
     "node_modules/**",

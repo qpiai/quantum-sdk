@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from __future__ import annotations
 from qpiai_quantum.circuit import Circuit
 from qpiai_quantum.icr.circuitoperation import CircuitOperation, OperationType
 from .lattices import Lattice
@@ -6,9 +6,9 @@ from .lattices import Lattice
 
 def _add_pauli_xx_rotation(circuit: Circuit, u: int, v: int):
     """Apply e^(-i * theta * X_u X_v) using parameterized Rz."""
-    circuit.H(u)
-    circuit.H(v)
-    circuit.CX(u, v)
+    circuit.h(u)
+    circuit.h(v)
+    circuit.cx(u, v)
 
     # Parametric RZ
     rz_op = CircuitOperation(
@@ -20,18 +20,18 @@ def _add_pauli_xx_rotation(circuit: Circuit, u: int, v: int):
     )
     circuit.add_operation(rz_op)
 
-    circuit.CX(u, v)
-    circuit.H(u)
-    circuit.H(v)
+    circuit.cx(u, v)
+    circuit.h(u)
+    circuit.h(v)
 
 
 def _add_pauli_yy_rotation(circuit: Circuit, u: int, v: int):
     """Apply e^(-i * theta * Y_u Y_v) using parameterized Rz."""
-    circuit.SDG(u)
-    circuit.SDG(v)
-    circuit.H(u)
-    circuit.H(v)
-    circuit.CX(u, v)
+    circuit.sdg(u)
+    circuit.sdg(v)
+    circuit.h(u)
+    circuit.h(v)
+    circuit.cx(u, v)
 
     rz_op = CircuitOperation(
         operation_type=OperationType.N_QUBIT_PARAMETRIC,
@@ -42,16 +42,16 @@ def _add_pauli_yy_rotation(circuit: Circuit, u: int, v: int):
     )
     circuit.add_operation(rz_op)
 
-    circuit.CX(u, v)
-    circuit.H(u)
-    circuit.H(v)
-    circuit.S(u)
-    circuit.S(v)
+    circuit.cx(u, v)
+    circuit.h(u)
+    circuit.h(v)
+    circuit.s(u)
+    circuit.s(v)
 
 
 def _add_pauli_zz_rotation(circuit: Circuit, u: int, v: int):
     """Apply e^(-i * theta * Z_u Z_v) using parameterized Rz."""
-    circuit.CX(u, v)
+    circuit.cx(u, v)
 
     rz_op = CircuitOperation(
         operation_type=OperationType.N_QUBIT_PARAMETRIC,
@@ -62,7 +62,7 @@ def _add_pauli_zz_rotation(circuit: Circuit, u: int, v: int):
     )
     circuit.add_operation(rz_op)
 
-    circuit.CX(u, v)
+    circuit.cx(u, v)
 
 
 def heisenberg_hva_ansatz(lattice: Lattice, layers: int = 1) -> Circuit:
@@ -86,7 +86,7 @@ def heisenberg_hva_ansatz(lattice: Lattice, layers: int = 1) -> Circuit:
 
     # Prepare a simple initial superposition state (e.g. Hadamard on all qubits)
     for i in range(n_qubits):
-        circuit.H(i)
+        circuit.h(i)
 
     for _ in range(layers):
         # 1. XX rotations on all edges

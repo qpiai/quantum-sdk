@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import numpy as np
-from typing import List, Tuple, Dict
 from qpiai_quantum.circuit import Circuit
 from qpiai_quantum.icr.circuitoperation import CircuitOperation, OperationType
 from .mappers import FermionOperator, jordan_wigner, bravyi_kitaev
@@ -28,14 +29,14 @@ def _add_parameterized_pauli_rotation(
     # 1. Basis change gates
     for q, op in active_ops:
         if op == "X":
-            circuit.H(q)
+            circuit.h(q)
         elif op == "Y":
-            circuit.SDG(q)
-            circuit.H(q)
+            circuit.sdg(q)
+            circuit.h(q)
 
     # 2. CNOT chain (parity computation)
     for idx in range(len(qubits) - 1):
-        circuit.CX(qubits[idx], qubits[idx + 1])
+        circuit.cx(qubits[idx], qubits[idx + 1])
 
     # 3. Parameterized rotation
     # We want to implement e^(i * theta * coeff_imag * P).
@@ -61,21 +62,21 @@ def _add_parameterized_pauli_rotation(
     if angle_sign < 0:
         circuit.add_operation(rz_op)
     else:
-        circuit.X(target_qubit)
+        circuit.x(target_qubit)
         circuit.add_operation(rz_op)
-        circuit.X(target_qubit)
+        circuit.x(target_qubit)
 
     # 4. Uncompute CNOT chain
     for idx in reversed(range(len(qubits) - 1)):
-        circuit.CX(qubits[idx], qubits[idx + 1])
+        circuit.cx(qubits[idx], qubits[idx + 1])
 
     # 5. Uncompute basis change gates
     for q, op in active_ops:
         if op == "X":
-            circuit.H(q)
+            circuit.h(q)
         elif op == "Y":
-            circuit.H(q)
-            circuit.S(q)
+            circuit.h(q)
+            circuit.s(q)
 
 
 def uccsd_ansatz(
@@ -101,7 +102,7 @@ def uccsd_ansatz(
 
     # 1. Prepare Hartree-Fock state |11...100...0>
     for i in range(n_electrons):
-        circuit.X(i)
+        circuit.x(i)
 
     # 2. Identify spin-conserving single excitations: i -> a
     singles = []
