@@ -181,7 +181,7 @@ ignore-names = [
     "check_MUB", "Bell", "UU", "S13", "SU", "SUSU", "non_MES",
     "ADC", "oX", "X2", "P", "P_tr", "P_sum", "RZ", "RY",
     "GRADIENT_FREE_OPTIMIZERS", "GRADIENT_BASED_OPTIMIZERS",
-    "eigenvalues_M"
+    "eigenvalues_M", "J", "Jx", "Jy", "Jz", "B_full"
 ]
 
 [tool.ruff.format]
