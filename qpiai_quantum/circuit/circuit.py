@@ -202,7 +202,6 @@ class Circuit:
                 "YGate",
                 "ZGate",
                 "IDGate",
-                "SXGate",
                 "CXGate",
                 "CYGate",
                 "CZGate",
@@ -211,7 +210,6 @@ class Circuit:
                 "SwapGate",
                 "CCXGate",
                 "CSwapGate",
-                "ISwapGate",
             ]:
                 return copy.deepcopy(op)
 
@@ -228,6 +226,18 @@ class Circuit:
                 from ..icr.circuitoperation import SXGate as SXG
 
                 return SXG(*op.qubits)
+            elif name == "SXGate":
+                from ..icr.circuitoperation import SXDGGate as SXDG
+
+                return SXDG(*op.qubits)
+            elif name == "ISwapGate":
+                from ..icr.circuitoperation import ISwapDGGate as ISwapDG
+
+                return ISwapDG(*op.qubits)
+            elif name == "ISwapDGGate":
+                from ..icr.circuitoperation import ISwapGate as ISG
+
+                return ISG(*op.qubits)
 
             # U gate inverse: U(θ, φ, λ)⁻¹ = U(-θ, -λ, -φ)
             elif name == "UGate":
@@ -565,6 +575,19 @@ class Circuit:
         self._validate_qubit(qubit1)
         self._validate_qubit(qubit2)
         self.ISWAP(qubit1, qubit2)  # type: ignore
+
+    def iswapdg(self, qubit1: int, qubit2: int):
+        """
+        Apply a iSWAP-dagger gate between the specified qubits.
+
+        Args:
+            qubit1 (int): First qubit index
+            qubit2 (int): Second qubit index
+        """
+        self._validate_unique_qubits(qubit1, qubit2)
+        self._validate_qubit(qubit1)
+        self._validate_qubit(qubit2)
+        self.ISWAPDG(qubit1, qubit2)  # type: ignore
 
     def cp(self, control_qubit: int, target_qubit: int, theta: float):
         """

@@ -33,6 +33,7 @@ from qpiai_quantum.icr.circuitoperation import (
     ECRGate,
     SwapGate,
     ISwapGate,
+    ISwapDGGate,
     CCXGate,
     CSwapGate,
     BarrierOperation,
@@ -445,3 +446,25 @@ def test_inverse_cs_gate_error():
 
     with pytest.raises(Exception):
         circ.inverse()
+
+
+def test_inverse_iswap():
+    """Test that ISWAP⁻¹ = ISWAPDG."""
+    circ = Circuit(2)
+    circ.iswap(0, 1)
+
+    inv_circ = circ.inverse()
+    ops = list(inv_circ.icr.evolve)
+    assert len(ops) == 1
+    assert isinstance(ops[0], ISwapDGGate)
+
+
+def test_inverse_iswapdg():
+    """Test that ISWAPDG⁻¹ = ISWAP."""
+    circ = Circuit(2)
+    circ.iswapdg(0, 1)
+
+    inv_circ = circ.inverse()
+    ops = list(inv_circ.icr.evolve)
+    assert len(ops) == 1
+    assert isinstance(ops[0], ISwapGate)

@@ -193,9 +193,7 @@ class CSGate(CircuitOperation):
 
 class ECRGate(CircuitOperation):
     def __init__(self, qubit1: int, qubit2: int):
-        super().__init__(
-            OperationType.N_QUBIT_NON_PARAMETRIC, "ECR", [qubit1, qubit2]
-        )
+        super().__init__(OperationType.N_QUBIT_NON_PARAMETRIC, "ECR", [qubit1, qubit2])
 
 
 class SwapGate(CircuitOperation):
@@ -207,6 +205,13 @@ class ISwapGate(CircuitOperation):
     def __init__(self, qubit1: int, qubit2: int):
         super().__init__(
             OperationType.N_QUBIT_NON_PARAMETRIC, "iSWAP", [qubit1, qubit2]
+        )
+
+
+class ISwapDGGate(CircuitOperation):
+    def __init__(self, qubit1: int, qubit2: int):
+        super().__init__(
+            OperationType.N_QUBIT_NON_PARAMETRIC, "iSWAPdg", [qubit1, qubit2]
         )
 
 
