@@ -4,7 +4,7 @@ from qpiai_quantum.applications.optimization.problems import (
     PortfolioOptimizationProblem as _NewPortfolioProblem,
 )
 
-__all__ = ["MaxCutProblem", "PortfolioOptimizationProblem"]
+__all__ = ["MaxCutProblem", "PortfolioOptimizationProblem"]  # noqa: F822
 
 
 def __getattr__(name: str):
