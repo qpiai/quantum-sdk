@@ -170,8 +170,6 @@
     "argmin",
     "hstack",
     "qite",
-    "ising",
->>>>>>> 3d645a7 (fix(circuit): add missing gate inverses, N814 compliance and return type hints)
     "rccx",
     "mbqc",
     "patheffects",
@@ -269,7 +267,21 @@
     "Fock",
     "ferm",
     "ijab",
-    "uncompute"
+    "uncompute",
+    "bitstring",
+    "Chuang",
+    "fermionic",
+    "pqrs",
+    "hcore",
+    "nelectron",
+    "paulis",
+    "Seeley",
+    "wavefunctions",
+    "ising",
+    "Ising",
+    "TFIM",
+    "Motta",
+    "eigenstates"
   ],
   "ignorePaths": [
     "node_modules/**",
