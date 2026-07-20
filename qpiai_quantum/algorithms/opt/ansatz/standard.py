@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 import numpy as np
 from ....circuit import Circuit
 from ....circuit.quantumregister import QuantumRegister
@@ -133,7 +133,7 @@ def _apply_cost_evolution(
 
     Args:
         circuit: Circuit to modify
-        ops: List of (qubit_index, pauli_op) tuples
+        ops: list of (qubit_index, pauli_op) tuples
         coeff: Coefficient of this term
         parameter_value: Value of gamma parameter (0.0 means parameterized)
     """

@@ -269,8 +269,8 @@ class BaseDensityMatrix(ABC):
         leaving a reduced density matrix describing only the remaining subsystems.
 
         Args:
-            qubits_to_keep: List of qubit indices to keep (0-indexed)
-            dims: List of dimensions for each subsystem. If None, assumes all qubits are 2D
+            qubits_to_keep: list of qubit indices to keep (0-indexed)
+            dims: list of dimensions for each subsystem. If None, assumes all qubits are 2D
 
         Returns:
             np.ndarray: The reduced density matrix

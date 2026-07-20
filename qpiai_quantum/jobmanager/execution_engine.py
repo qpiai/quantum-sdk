@@ -1,7 +1,7 @@
 import os
 import time
 import logging
-from typing import Optional, Dict, Any, TYPE_CHECKING
+from typing import Optional, Any, TYPE_CHECKING
 
 logger = logging.getLogger("qpiai_quantum.jobmanager")
 

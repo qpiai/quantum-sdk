@@ -1,6 +1,6 @@
 """Basis encoding for quantum data."""
 
-from typing import List, Optional, Tuple
+from typing import Optional
 import numpy as np
 from ....circuit import Circuit
 
@@ -22,7 +22,7 @@ def basis_encode(
         qubits: Optional list of qubits to use for encoding
 
     Returns:
-        Tuple of (circuit, qubits used)
+        tuple of (circuit, qubits used)
     """
     # Validate data
     data = np.asarray(data).ravel()

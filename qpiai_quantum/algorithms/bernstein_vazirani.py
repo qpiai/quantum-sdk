@@ -6,7 +6,7 @@ in a single query to the oracle f(x) = s·x mod 2 (bitwise inner product).
 
 """
 
-from typing import Optional, Dict, Any
+from typing import Optional, Any
 from qpiai_quantum.circuit import Circuit
 from qpiai_quantum.jobmanager.job_result import JobResult
 from .base import QuantumAlgorithm

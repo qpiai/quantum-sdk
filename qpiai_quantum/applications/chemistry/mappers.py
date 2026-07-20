@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Dict, List, Tuple, Union, Optional
+from typing import Union, Optional
 
 
 class FermionOperator:
@@ -159,7 +159,7 @@ def jordan_wigner(
         fermion_op: FermionOperator to map
 
     Returns:
-        List of Pauli strings in the SDK Hamiltonian format: List[Tuple[List[Tuple[int, str]], float]]
+        list of Pauli strings in the SDK Hamiltonian format: list[tuple[list[tuple[int, str]], float]]
     """
     all_pauli_terms = []
 
@@ -229,7 +229,7 @@ def bravyi_kitaev(
         n_qubits: Number of qubits in the active space (pads to next power of 2)
 
     Returns:
-        List of Pauli strings in the SDK Hamiltonian format: List[Tuple[List[Tuple[int, str]], float]]
+        list of Pauli strings in the SDK Hamiltonian format: list[tuple[list[tuple[int, str]], float]]
     """
     power_of_2 = 1
     while power_of_2 < n_qubits:

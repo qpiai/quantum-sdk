@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patheffects as path_effects
 from matplotlib.patches import Rectangle, Circle, Arc
 import numpy as np
-from typing import List, Optional
+from typing import Optional
 import re
 
 

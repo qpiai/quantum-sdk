@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.linalg import expm
-from typing import List, Tuple, Optional, Union
+from typing import Optional, Union
 from .models import QubitHamiltonian
 
 # Standard Pauli matrices
@@ -82,7 +82,7 @@ class QITESolver:
             initial_state: Optional starting statevector (defaults to uniform superposition)
 
         Returns:
-            Tuple of (ground_state_energy, ground_state_vector)
+            tuple of (ground_state_energy, ground_state_vector)
         """
         dim = 2**self.n_qubits
         if initial_state is None:

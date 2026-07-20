@@ -1,6 +1,6 @@
 import plotly.graph_objects as go  # type: ignore[import-untyped]
 import numpy as np
-from typing import List, Optional
+from typing import Optional
 import math
 
 

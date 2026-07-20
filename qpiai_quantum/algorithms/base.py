@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Any
 import time
 from qpiai_quantum.circuit import Circuit
 from qpiai_quantum.jobmanager import Backend
@@ -170,7 +170,7 @@ class QuantumAlgorithm(ABC):
         Convert the algorithm's circuit to OpenQASM representation.
 
         Returns:
-            str | List[str]: The OpenQASM representation of the circuit
+            str | list[str]: The OpenQASM representation of the circuit
         """
         if self.circuit is None:
             raise ValueError(

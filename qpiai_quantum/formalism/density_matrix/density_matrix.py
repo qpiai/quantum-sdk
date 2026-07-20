@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import Union
 import numpy as np
 import warnings
 import scipy.linalg as splinalg
@@ -21,7 +21,7 @@ class DensityMatrix(BaseDensityMatrix):
         Creates a DensityMatrix object for a given quantum state as numpy array or list.
 
         Args:
-            state (List[List[complex]]): The quantum state as array
+            state (list[list[complex]]): The quantum state as array
         """
         if isinstance(state, np.ndarray):
             state = state

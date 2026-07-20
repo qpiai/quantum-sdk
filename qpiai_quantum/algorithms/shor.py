@@ -1,7 +1,7 @@
 import math
 import random
 from fractions import Fraction
-from typing import Optional, Tuple, List
+from typing import Optional
 from qpiai_quantum.circuit import Circuit
 from qpiai_quantum.jobmanager.job_result import JobResult
 from .base import QuantumAlgorithm
@@ -116,7 +116,7 @@ class ShorsAlgorithm(QuantumAlgorithm):
             n (int): Number to check
 
         Returns:
-            Optional[Tuple[int, int]]: (base, exponent) if n is a power, None otherwise
+            Optional[tuple[int, int]]: (base, exponent) if n is a power, None otherwise
         """
         for b in range(2, int(math.log2(n)) + 1):
             a = n ** (1 / b)
@@ -302,7 +302,7 @@ class ShorsAlgorithm(QuantumAlgorithm):
             max_attempts (int): Maximum number of attempts
 
         Returns:
-            Optional[Tuple[int, int]]: Factors (p, q) such that N = p * q, or None
+            Optional[tuple[int, int]]: Factors (p, q) such that N = p * q, or None
         """
         for attempt in range(max_attempts):
             # Step 1: Choose random a coprime to N

@@ -1,4 +1,3 @@
-from typing import List
 from ....circuit import Circuit
 from ....circuit.quantumregister import QuantumRegister
 

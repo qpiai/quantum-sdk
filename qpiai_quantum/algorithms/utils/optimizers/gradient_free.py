@@ -1,5 +1,5 @@
 # Gradient-free optimizers for quantum algorithms
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Optional, Union
 from collections.abc import Callable
 import numpy as np
 from scipy.optimize import minimize, differential_evolution
@@ -201,7 +201,7 @@ def spsa_optimize(
         **kwargs: Additional arguments
 
     Returns:
-        Tuple containing:
+        tuple containing:
         - Optimal parameters
         - Final objective value
         - Dictionary with optimization details including:
@@ -368,7 +368,7 @@ def genetic_algorithm_optimize(
 
     Args:
         objective: Function to minimize
-        bounds: List of (lower, upper) bounds for each parameter
+        bounds: list of (lower, upper) bounds for each parameter
         maxiter: Number of generations (runs exactly this many)
         population_size: Size of the population
         mutation_rate: Probability of mutation
@@ -376,7 +376,7 @@ def genetic_algorithm_optimize(
         **kwargs: Additional arguments
 
     Returns:
-        Tuple containing:
+        tuple containing:
         - Optimal parameters
         - Final objective value
         - Dictionary with optimization details including:
@@ -471,7 +471,7 @@ def particle_swarm_optimize(
 
     Args:
         objective: Function to minimize
-        bounds: List of (lower, upper) bounds for each parameter
+        bounds: list of (lower, upper) bounds for each parameter
         maxiter: Number of iterations (runs exactly this many)
         n_particles: Number of particles in the swarm
         w: Inertia weight (0.4-0.9 typical)
@@ -480,7 +480,7 @@ def particle_swarm_optimize(
         **kwargs: Additional arguments
 
     Returns:
-        Tuple containing:
+        tuple containing:
         - Optimal parameters
         - Final objective value
         - Dictionary with optimization details including:

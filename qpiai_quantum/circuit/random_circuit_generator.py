@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 import random
 import math
 from qpiai_quantum.circuit.circuit import Circuit

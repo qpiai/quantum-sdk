@@ -1,5 +1,5 @@
 import time
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from ..icr.circuitoperation import CircuitOperation, OperationType
 from ..icr.icr import IntermediateCircuitRepresentation
@@ -19,7 +19,7 @@ def _map_device_name_to_method(device_name: str):
     Internal helper to map high-level device_name to (device, method).
 
     Returns:
-        Tuple of (device, method) where:
+        tuple of (device, method) where:
           - device name is "QpiAI-QSV-Simulator", "QpiAI-QDM-Simulator", "QpiAI-QTN-Simulator", "QpiAI-Indus-1", "QpiAI-QSV-Lite", or "QpiAI-QDM-Lite"
           - method is one of "statevector", "density_matrix", "tensor_network", or None (for qpu)
     """
@@ -158,7 +158,7 @@ class Circuit:
 
         Args:
             other (Circuit): The circuit whose operations should be appended.
-            qubits (List[int], optional): A mapping from the 'other' circuit's qubits to this circuit's qubits.
+            qubits (list[int], optional): A mapping from the 'other' circuit's qubits to this circuit's qubits.
                                           Indices correspond to `other`'s qubits, values correspond to `self`'s qubits.
         """
         import copy
@@ -789,7 +789,7 @@ class Circuit:
         Apply a multi-controlled X (MCX) gate.
 
         Args:
-            control_qubits (List[int]): List of control qubit indices
+            control_qubits (list[int]): list of control qubit indices
             target_qubit (int): Target qubit index
         """
         self._validate_unique_qubits(*(control_qubits + [target_qubit]))

@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple
 
 
 class Lattice(ABC):
@@ -22,7 +21,7 @@ class Lattice(ABC):
             pbc: Enable Periodic Boundary Conditions (PBC).
 
         Returns:
-            List of tuples of (site_idx_1, site_idx_2) representing bonds.
+            list of tuples of (site_idx_1, site_idx_2) representing bonds.
         """
         pass
 

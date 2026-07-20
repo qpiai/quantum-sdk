@@ -4,7 +4,7 @@ import queue
 import threading
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import numpy as np  # type: ignore
 
@@ -150,7 +150,7 @@ class JobManager:
         List all available compute resources for the authenticated user.
 
         Returns:
-            List[Dict]: List of compute resources with their details
+            list[Dict]: list of compute resources with their details
 
         Raises:
             JobManagerError: If the API call fails
@@ -299,7 +299,7 @@ class JobManager:
             overwrite (bool): Whether to overwrite existing circuit with same name (default: False)
 
         Returns:
-            Dict containing job ID and submission info:
+            dict containing job ID and submission info:
                 - job_id: str, Unique job identifier
                 - status: str, Job status ("submitted")
                 - experiment_id: str, Experiment ID
@@ -519,7 +519,7 @@ class JobManager:
             overwrite (bool): Whether to overwrite existing circuit with same name (default: False)
 
         Returns:
-            Dict containing job ID and submission info:
+            dict containing job ID and submission info:
                 - job_id: str, Unique job identifier
                 - status: str, Job status ("submitted")
                 - experiment_id: str, Experiment ID
@@ -1572,7 +1572,7 @@ class JobManager:
             initial_poll_count (int): Starting poll count
 
         Returns:
-            Dict with at minimum {"status": "completed", "job_id": job_id}
+            dict with at minimum {"status": "completed", "job_id": job_id}
         """
         try:
             poll_count = initial_poll_count

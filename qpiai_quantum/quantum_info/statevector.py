@@ -1,6 +1,6 @@
 import time
 import numpy as np
-from typing import Union, List, Optional
+from typing import Union, Optional
 from ..circuit.circuit import Circuit
 from ..jobmanager import JobManager
 import os

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from ..results.base_result import BaseQuantumResult
 import numpy as np
 

@@ -1,4 +1,4 @@
-from typing import List, Tuple, Any
+from typing import Any
 from .lattices import Lattice
 from ..chemistry.mappers import FermionOperator, jordan_wigner, bravyi_kitaev
 

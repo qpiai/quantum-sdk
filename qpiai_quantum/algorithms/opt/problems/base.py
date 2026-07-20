@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Any, Optional
 
 
 class OptimizationProblem(ABC):
@@ -25,7 +25,7 @@ class OptimizationProblem(ABC):
         Get Hamiltonian terms in library-agnostic format.
 
         Returns:
-            List of (operator_list, coefficient) tuples where:
+            list of (operator_list, coefficient) tuples where:
             - operator_list: [(qubit_idx, 'X'/'Y'/'Z'), ...]
             - coefficient: float weight for this term
         """
@@ -36,7 +36,7 @@ class OptimizationProblem(ABC):
         Public method to get Hamiltonian terms for VQE and other solvers.
 
         Returns:
-            List of (operator_list, coefficient) tuples
+            list of (operator_list, coefficient) tuples
         """
         return self._get_hamiltonian_terms()
 
@@ -62,7 +62,7 @@ class OptimizationProblem(ABC):
             solution: Problem solution to validate
 
         Returns:
-            Tuple of (is_valid, message)
+            tuple of (is_valid, message)
         """
         pass
 

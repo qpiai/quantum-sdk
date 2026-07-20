@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from ..algorithms.base import QuantumAlgorithm
 from qpiai_quantum.circuit import Circuit
 from qpiai_quantum.jobmanager.job_result import JobResult
@@ -148,7 +148,7 @@ class GHZStateGenerator(QuantumAlgorithm):
             max_qubits (int): Maximum number of qubits. Default is 6.
 
         Returns:
-            Dict[int, GHZStateGenerator]: Dictionary mapping qubit counts to generators
+            dict[int, GHZStateGenerator]: Dictionary mapping qubit counts to generators
         """
         return {
             n: GHZStateGenerator(num_qubits=n)
@@ -168,12 +168,12 @@ class GHZStateGenerator(QuantumAlgorithm):
         scale with the number of qubits.
 
         Args:
-            qubit_range (List[int]): List of qubit counts to test
+            qubit_range (list[int]): list of qubit counts to test
             shots (int): Number of shots for each state
             backend (Backend): Backend to use for execution
 
         Returns:
-            Dict[int, BaseQuantumResult]: Results for each qubit count
+            dict[int, BaseQuantumResult]: Results for each qubit count
         """
         results = {}
 

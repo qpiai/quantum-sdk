@@ -1,6 +1,6 @@
 import numpy as np
 from dataclasses import dataclass
-from typing import Dict, List, Tuple, Union, Optional
+from typing import Union, Optional
 from .mappers import FermionOperator
 
 

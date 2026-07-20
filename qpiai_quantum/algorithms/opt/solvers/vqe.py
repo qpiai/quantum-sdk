@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Union, List, Tuple
+from typing import Any, Optional, Union
 from collections.abc import Callable
 import numpy as np
 import warnings
@@ -647,7 +647,7 @@ class VQESolver(QuantumAlgorithm):
             **kwargs: Additional optimizer parameters
 
         Returns:
-            Tuple of (optimal_params, optimal_value, optimization_info)
+            tuple of (optimal_params, optimal_value, optimization_info)
         """
         GRADIENT_FREE_OPTIMIZERS = {
             "cobyla",

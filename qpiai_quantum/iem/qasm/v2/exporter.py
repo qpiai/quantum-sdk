@@ -7,7 +7,7 @@ object into OpenQASM 2.0 format.
 
 from qpiai_quantum.circuit.circuit import Circuit
 from qpiai_quantum.icr.circuitoperation import CircuitOperation
-from typing import List, Dict, Any
+from typing import Any
 
 
 class QASM2:

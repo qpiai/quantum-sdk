@@ -12,7 +12,7 @@ so the output is *not* genuinely random in the information-theoretic sense.
 
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 from qpiai_quantum.results.base_result import BaseQuantumResult
 from qpiai_quantum.circuit import Circuit
 from qpiai_quantum.jobmanager.job_result import JobResult

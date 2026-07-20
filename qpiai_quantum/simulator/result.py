@@ -10,7 +10,7 @@ does ``result.get()["counts"]`` or ``result.counts`` works identically
 regardless of whether the circuit was executed on the cloud or locally.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import numpy as np
 

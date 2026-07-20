@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 from collections.abc import Callable
 from qpiai_quantum.results.base_result import BaseQuantumResult
 import numpy as np
@@ -443,7 +443,7 @@ class QAOASolver(QuantumAlgorithm):
             **kwargs: Additional optimizer parameters
 
         Returns:
-            Tuple of (optimal_params, optimal_value, optimization_info)
+            tuple of (optimal_params, optimal_value, optimization_info)
         """
         GRADIENT_FREE_OPTIMIZERS = {
             "COBYLA",

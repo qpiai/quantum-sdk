@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional
 from qpiai_quantum.circuit import Circuit
 from .base import QuantumAlgorithm
 import math

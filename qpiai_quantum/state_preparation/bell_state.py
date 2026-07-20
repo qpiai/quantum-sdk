@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from ..algorithms.base import QuantumAlgorithm
 from qpiai_quantum.circuit import Circuit
 from qpiai_quantum.jobmanager.job_result import JobResult

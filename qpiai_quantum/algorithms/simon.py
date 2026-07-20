@@ -5,7 +5,7 @@ Simon's algorithm finds hidden bitstring patterns with exponential speedup
 over classical algorithms.
 """
 
-from typing import Optional, List
+from typing import Optional
 from collections.abc import Callable
 from qpiai_quantum.circuit import Circuit
 from qpiai_quantum.jobmanager.job_result import JobResult
@@ -186,7 +186,7 @@ class SimonAlgorithm(QuantumAlgorithm):
         satisfies s · y = 0 (mod 2), so s lies in the null space.
 
         Args:
-            measurements (List[str]): List of measurement bitstrings
+            measurements (list[str]): list of measurement bitstrings
 
         Returns:
             str: The recovered hidden string

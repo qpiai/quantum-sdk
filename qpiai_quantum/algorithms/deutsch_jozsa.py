@@ -8,7 +8,7 @@ A constant function returns the same value for all inputs.
 A balanced function returns 0 for exactly half of inputs and 1 for the other half.
 """
 
-from typing import Optional, Dict, Any
+from typing import Optional, Any
 from qpiai_quantum.circuit import Circuit
 from qpiai_quantum.jobmanager.job_result import JobResult
 from .base import QuantumAlgorithm

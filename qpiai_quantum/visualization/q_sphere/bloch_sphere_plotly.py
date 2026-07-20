@@ -2,7 +2,7 @@
 
 import numpy as np
 import plotly.graph_objects as go
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 
 class PlotlyBlochSphere:
@@ -50,7 +50,7 @@ class PlotlyBlochSphere:
         Create traces for the X, Y, Z axes.
 
         Returns:
-            List of Plotly Scatter3d traces for axes
+            list of Plotly Scatter3d traces for axes
         """
         axis_length = 1.3
         traces = []
@@ -104,7 +104,7 @@ class PlotlyBlochSphere:
         Create text annotations for axes and quantum states.
 
         Returns:
-            List of Plotly Scatter3d traces for labels
+            list of Plotly Scatter3d traces for labels
         """
         axis_length = 1.4
         labels = []
@@ -305,7 +305,7 @@ class PlotlyBlochSphere:
             label: Label for the arrow
 
         Returns:
-            List of Plotly traces forming the arrow
+            list of Plotly traces forming the arrow
         """
         traces = []
 
@@ -462,9 +462,9 @@ def create_interactive_bloch_sphere(
     Convenience function to create and display an interactive Bloch sphere.
 
     Args:
-        states: List of state vectors (each is [alpha, beta])
-        colors: List of colors for each state
-        labels: List of labels for each state
+        states: list of state vectors (each is [alpha, beta])
+        colors: list of colors for each state
+        labels: list of labels for each state
         title: Title of the plot
 
     Returns:

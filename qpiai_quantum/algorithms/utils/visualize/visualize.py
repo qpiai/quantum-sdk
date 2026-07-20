@@ -5,7 +5,7 @@ Provides multiple plot types for analyzing optimization convergence.
 
 import matplotlib.pyplot as plt
 import numpy as np
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 # Try to import seaborn, but make it optional
 try:
@@ -570,7 +570,7 @@ def plot_parameter_trajectory_2d(result, param_indices=(0, 1), ax=None):
 
     Args:
         result: VQEResult object
-        param_indices: Tuple of (param1_idx, param2_idx)
+        param_indices: tuple of (param1_idx, param2_idx)
         ax: Matplotlib axis
     """
     if ax is None:

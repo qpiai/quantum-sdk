@@ -5,7 +5,7 @@ Provides an abstract base class for all quantum execution result types.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 import numpy as np
 
 
@@ -35,7 +35,7 @@ class BaseQuantumResult(ABC):
         the number of times each outcome was observed.
 
         Returns:
-            Dict[str, int]: Measurement counts, e.g. {'00': 512, '11': 512}
+            dict[str, int]: Measurement counts, e.g. {'00': 512, '11': 512}
                            Returns None if no measurements were performed.
 
         Example:
@@ -55,7 +55,7 @@ class BaseQuantumResult(ABC):
         for statevector simulation methods.
 
         Returns:
-            List[complex]: The statevector as a list of complex amplitudes
+            list[complex]: The statevector as a list of complex amplitudes
                           Returns None if statevector not available (e.g., for hardware runs)
 
         Example:
@@ -106,7 +106,7 @@ class BaseQuantumResult(ABC):
         counts by total shots.
 
         Returns:
-            Dict[str, float]: Probabilities for each outcome
+            dict[str, float]: Probabilities for each outcome
                              Returns None if counts not available
 
         Example:
@@ -126,7 +126,7 @@ class BaseQuantumResult(ABC):
         Get measurement counts (method version of property).
 
         Returns:
-            Dict[str, int]: Measurement counts
+            dict[str, int]: Measurement counts
 
         Example:
             >>> counts = result.get_counts()
@@ -138,7 +138,7 @@ class BaseQuantumResult(ABC):
         Get statevector (method version of property).
 
         Returns:
-            List[complex]: Statevector amplitudes
+            list[complex]: Statevector amplitudes
 
         Example:
             >>> sv = result.get_statevector()
@@ -150,7 +150,7 @@ class BaseQuantumResult(ABC):
         Get measurement probabilities (method version of property).
 
         Returns:
-            Dict[str, float]: Outcome probabilities
+            dict[str, float]: Outcome probabilities
 
         Example:
             >>> probs = result.get_probabilities()
@@ -207,7 +207,7 @@ class BaseQuantumResult(ABC):
             *params: Optional field names to retrieve
 
         Returns:
-            Dict[str, Any]: Dictionary containing requested result data
+            dict[str, Any]: Dictionary containing requested result data
 
         Example:
             >>> # Get all data

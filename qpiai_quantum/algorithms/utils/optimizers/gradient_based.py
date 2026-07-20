@@ -1,6 +1,6 @@
 """Gradient-based optimization methods with complete history tracking."""
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Optional, Union
 from collections.abc import Callable
 import numpy as np
 from scipy.optimize import minimize
@@ -73,7 +73,7 @@ def gradient_descent_optimize(
         **kwargs: Additional arguments (callback, etc.)
 
     Returns:
-        Tuple containing:
+        tuple containing:
         - Optimal parameters
         - Final objective value
         - Dictionary with optimization details including:
@@ -186,7 +186,7 @@ def adam_optimize(
         **kwargs: Additional arguments (callback, etc.)
 
     Returns:
-        Tuple containing:
+        tuple containing:
         - Optimal parameters
         - Final objective value
         - Dictionary with optimization details including:
@@ -311,7 +311,7 @@ def adagrad_optimize(
         **kwargs: Additional arguments (callback, etc.)
 
     Returns:
-        Tuple containing:
+        tuple containing:
         - Optimal parameters
         - Final objective value
         - Dictionary with optimization details including:
@@ -416,13 +416,13 @@ def l_bfgs_b_optimize(
         objective: Function to minimize
         gradient: Function that computes gradient (optional, will use finite differences if None)
         initial_point: Starting point
-        bounds: List of (lower, upper) bounds for each parameter (optional)
+        bounds: list of (lower, upper) bounds for each parameter (optional)
         maxiter: Maximum number of iterations
         tol: Tolerance for termination (both function and gradient)
         **kwargs: Additional arguments (callback, options, etc.)
 
     Returns:
-        Tuple containing:
+        tuple containing:
         - Optimal parameters
         - Final objective value
         - Dictionary with optimization details including:
@@ -490,7 +490,7 @@ def cg_optimize(
         **kwargs: Additional arguments (callback, options, etc.)
 
     Returns:
-        Tuple containing:
+        tuple containing:
         - Optimal parameters
         - Final objective value
         - Dictionary with optimization details including:
