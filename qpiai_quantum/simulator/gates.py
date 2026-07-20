@@ -118,6 +118,8 @@ SWAP = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]], dtype=
 ISWAP = np.array(
     [[1, 0, 0, 0], [0, 0, 1j, 0], [0, 1j, 0, 0], [0, 0, 0, 1]], dtype=complex
 )
+ISWAPDG = ISWAP.conj().T
+
 
 ECR = (1 / np.sqrt(2)) * np.array(
     [
@@ -188,6 +190,7 @@ ALL_KNOWN_GATES: set[str] = {
     "cs",
     "swap",
     "iswap",
+    "iswapdg",
     "dcx",
     "ecr",
     "rxx",
@@ -273,6 +276,8 @@ def gate_spec(
         return 2, SWAP
     if name == "iswap":
         return 2, ISWAP
+    if name == "iswapdg":
+        return 2, ISWAPDG
     if name == "ecr":
         return 2, ECR
     if name == "rxx":

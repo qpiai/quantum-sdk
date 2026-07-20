@@ -31,6 +31,17 @@ from .circuitoperation import (
     MeasureOperation,
     BarrierOperation,
     Operation,
+    SXDGGate,
+    UGate,
+    CHGate,
+    CSGate,
+    ECRGate,
+    RXXGate,
+    RYYGate,
+    CRXGate,
+    CRYGate,
+    CRZGate,
+    ISwapDGGate,
 )
 from .icr import IntermediateCircuitRepresentation
 
@@ -63,4 +74,15 @@ __all__ = [
     "MeasureOperation",
     "BarrierOperation",
     "Operation",
+    "SXDGGate",
+    "UGate",
+    "CHGate",
+    "CSGate",
+    "ECRGate",
+    "RXXGate",
+    "RYYGate",
+    "CRXGate",
+    "CRYGate",
+    "CRZGate",
+    "ISwapDGGate",
 ]
