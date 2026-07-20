@@ -2935,7 +2935,6 @@ source = { editable = "." }
 dependencies = [
     { name = "cvxpy", version = "1.7.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "cvxpy", version = "1.9.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "ipykernel" },
     { name = "matplotlib", version = "3.10.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "matplotlib", version = "3.11.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -2956,6 +2955,7 @@ dependencies = [
 dev = [
     { name = "build" },
     { name = "codespell" },
+    { name = "ipykernel" },
     { name = "mypy" },
     { name = "pip-audit" },
     { name = "pytest" },
@@ -2979,7 +2979,7 @@ requires-dist = [
     { name = "build", marker = "extra == 'dev'" },
     { name = "codespell", marker = "extra == 'dev'" },
     { name = "cvxpy" },
-    { name = "ipykernel" },
+    { name = "ipykernel", marker = "extra == 'dev'" },
     { name = "matplotlib" },
     { name = "mypy", marker = "extra == 'dev'" },
     { name = "myst-parser", marker = "extra == 'docs'" },
