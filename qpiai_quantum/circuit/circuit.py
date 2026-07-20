@@ -241,11 +241,15 @@ class Circuit:
 
                 return ISwapGate(*op.qubits)
 
-            # CSDG inverse = CS (controlled S† → controlled S)
-            elif name == "CSDGGate":
-                from ..icr.circuitoperation import CSGate as CSG
+            # CS and CSDG inverse
+            elif name == "CSGate":
+                from ..icr.circuitoperation import CSDGGate
 
-                return CSG(*op.qubits)
+                return CSDGGate(*op.qubits)
+            elif name == "CSDGGate":
+                from ..icr.circuitoperation import CSGate
+
+                return CSGate(*op.qubits)
 
             # U gate inverse: U(θ, φ, λ)⁻¹ = U(-θ, -λ, -φ)
             elif name == "UGate":
@@ -253,6 +257,24 @@ class Circuit:
                 if inv_op.params is not None:
                     theta, phi, lam = inv_op.params
                     inv_op.params = [-theta, -lam, -phi]
+                return inv_op
+
+            # U2 gate inverse: U2(φ, λ)⁻¹ = U2(-λ - π, -φ + π)
+            elif name == "U2Gate":
+                import math
+
+                inv_op = copy.deepcopy(op)
+                if inv_op.params is not None:
+                    phi, lam = inv_op.params
+                    inv_op.params = [-lam - math.pi, -phi + math.pi]
+                return inv_op
+
+            # CU gate inverse: CU(θ, φ, λ, γ)⁻¹ = CU(-θ, -λ, -φ, -γ)
+            elif name == "CUGate":
+                inv_op = copy.deepcopy(op)
+                if inv_op.params is not None:
+                    theta, phi, lam, gamma = inv_op.params
+                    inv_op.params = [-theta, -lam, -phi, -gamma]
                 return inv_op
 
             # Parametric gates (negate theta)
@@ -703,7 +725,7 @@ class Circuit:
         phi: float,
         lam: float,
         gamma: float,
-    ):
+    ) -> None:
         """
         Apply a controlled U gate with four parameters.
 
@@ -750,7 +772,7 @@ class Circuit:
         self._validate_qubit(target_qubit)
         self.CS(control_qubit, target_qubit)  # type: ignore
 
-    def csdg(self, control_qubit: int, target_qubit: int):
+    def csdg(self, control_qubit: int, target_qubit: int) -> None:
         """
         Apply a controlled S† (inverse S) gate.
 
@@ -776,7 +798,7 @@ class Circuit:
         self._validate_qubit(qubit2)
         self.ECR(qubit1, qubit2)  # type: ignore
 
-    def dcx(self, qubit1: int, qubit2: int):
+    def dcx(self, qubit1: int, qubit2: int) -> None:
         """
         Apply a double CNOT (DCX) gate between the specified qubits.
 
@@ -809,7 +831,7 @@ class Circuit:
         self._validate_qubit(qubit)
         self.U(qubit, theta, phi, lam)  # type: ignore
 
-    def u2(self, qubit: int, phi: float, lam: float):
+    def u2(self, qubit: int, phi: float, lam: float) -> None:
         """
         Apply a U2(φ, λ) gate to the specified qubit.
 
@@ -864,7 +886,7 @@ class Circuit:
         self._validate_qubit(target_qubit2)
         self.CSWAP(control_qubit, target_qubit1, target_qubit2)  # type: ignore
 
-    def rccx(self, control_qubit1: int, control_qubit2: int, target_qubit: int):
+    def rccx(self, control_qubit1: int, control_qubit2: int, target_qubit: int) -> None:
         """
         Apply a relative-phase Toffoli (RCCX) gate.
 
