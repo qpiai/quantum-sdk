@@ -120,6 +120,11 @@ class SXGate(CircuitOperation):
         super().__init__(OperationType.N_QUBIT_NON_PARAMETRIC, "SX", [qubit])
 
 
+class SXDGGate(CircuitOperation):
+    def __init__(self, qubit: int):
+        super().__init__(OperationType.N_QUBIT_NON_PARAMETRIC, "SXdg", [qubit])
+
+
 # Single-qubit parametric gates
 
 
@@ -141,6 +146,13 @@ class RZGate(CircuitOperation):
 class PGate(CircuitOperation):
     def __init__(self, qubit: int, theta: float):
         super().__init__(OperationType.N_QUBIT_PARAMETRIC, "P", [qubit], [theta])
+
+
+class UGate(CircuitOperation):
+    def __init__(self, qubit: int, theta: float, phi: float, lam: float):
+        super().__init__(
+            OperationType.N_QUBIT_PARAMETRIC, "U", [qubit], [theta, phi, lam]
+        )
 
 
 # Two-qubit non-parametric gates
@@ -165,6 +177,25 @@ class CZGate(CircuitOperation):
         )
 
 
+class CHGate(CircuitOperation):
+    def __init__(self, control_qubit: int, target_qubit: int):
+        super().__init__(
+            OperationType.N_QUBIT_NON_PARAMETRIC, "CH", [control_qubit, target_qubit]
+        )
+
+
+class CSGate(CircuitOperation):
+    def __init__(self, control_qubit: int, target_qubit: int):
+        super().__init__(
+            OperationType.N_QUBIT_NON_PARAMETRIC, "CS", [control_qubit, target_qubit]
+        )
+
+
+class ECRGate(CircuitOperation):
+    def __init__(self, qubit1: int, qubit2: int):
+        super().__init__(OperationType.N_QUBIT_NON_PARAMETRIC, "ECR", [qubit1, qubit2])
+
+
 class SwapGate(CircuitOperation):
     def __init__(self, qubit1: int, qubit2: int):
         super().__init__(OperationType.SWAP, "SWAP", [qubit1, qubit2])
@@ -177,12 +208,69 @@ class ISwapGate(CircuitOperation):
         )
 
 
+class ISwapDGGate(CircuitOperation):
+    def __init__(self, qubit1: int, qubit2: int):
+        super().__init__(
+            OperationType.N_QUBIT_NON_PARAMETRIC, "iSWAPdg", [qubit1, qubit2]
+        )
+
+
 # Two-qubit parametric gates
 class CPGate(CircuitOperation):
     def __init__(self, control_qubit: int, target_qubit: int, theta: float):
         super().__init__(
             OperationType.N_QUBIT_PARAMETRIC,
             "CP",
+            [control_qubit, target_qubit],
+            [theta],
+        )
+
+
+class RXXGate(CircuitOperation):
+    def __init__(self, qubit1: int, qubit2: int, theta: float):
+        super().__init__(
+            OperationType.N_QUBIT_PARAMETRIC,
+            "RXX",
+            [qubit1, qubit2],
+            [theta],
+        )
+
+
+class RYYGate(CircuitOperation):
+    def __init__(self, qubit1: int, qubit2: int, theta: float):
+        super().__init__(
+            OperationType.N_QUBIT_PARAMETRIC,
+            "RYY",
+            [qubit1, qubit2],
+            [theta],
+        )
+
+
+class CRXGate(CircuitOperation):
+    def __init__(self, control_qubit: int, target_qubit: int, theta: float):
+        super().__init__(
+            OperationType.N_QUBIT_PARAMETRIC,
+            "CRX",
+            [control_qubit, target_qubit],
+            [theta],
+        )
+
+
+class CRYGate(CircuitOperation):
+    def __init__(self, control_qubit: int, target_qubit: int, theta: float):
+        super().__init__(
+            OperationType.N_QUBIT_PARAMETRIC,
+            "CRY",
+            [control_qubit, target_qubit],
+            [theta],
+        )
+
+
+class CRZGate(CircuitOperation):
+    def __init__(self, control_qubit: int, target_qubit: int, theta: float):
+        super().__init__(
+            OperationType.N_QUBIT_PARAMETRIC,
+            "CRZ",
             [control_qubit, target_qubit],
             [theta],
         )

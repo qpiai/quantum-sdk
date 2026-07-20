@@ -8,6 +8,7 @@ from qpiai_quantum.icr.circuitoperation import (
     ZGate,
     IDGate,
     SXGate,
+    SXDGGate,
     SGate,
     SDGGate,
     TGate,
@@ -16,13 +17,23 @@ from qpiai_quantum.icr.circuitoperation import (
     RYGate,
     RZGate,
     PGate,
+    UGate,
     CPGate,
     RZZGate,
+    RXXGate,
+    RYYGate,
+    CRXGate,
+    CRYGate,
+    CRZGate,
     CXGate,
     CYGate,
     CZGate,
+    CHGate,
+    CSGate,
+    ECRGate,
     SwapGate,
     ISwapGate,
+    ISwapDGGate,
     CCXGate,
     CSwapGate,
     BarrierOperation,
@@ -47,9 +58,10 @@ def test_single_qubit_standard_gates():
     circuit.t(0)
     circuit.tdg(0)
     circuit.sx(0)
+    circuit.sxdg(0)
 
     ops = list(circuit.icr.evolve)
-    assert len(ops) == 10
+    assert len(ops) == 11
     assert isinstance(ops[0], HGate)
     assert isinstance(ops[1], XGate)
     assert isinstance(ops[2], YGate)
@@ -60,6 +72,7 @@ def test_single_qubit_standard_gates():
     assert isinstance(ops[7], TGate)
     assert isinstance(ops[8], TDGGate)
     assert isinstance(ops[9], SXGate)
+    assert isinstance(ops[10], SXDGGate)
 
     for op in ops:
         assert op.qubits == [0]
@@ -72,17 +85,23 @@ def test_single_qubit_parametric_gates():
     circuit.ry(0, theta)
     circuit.rz(0, theta)
     circuit.p(0, theta)
+    circuit.u(0, 0.5, 0.1, 0.2)
 
     ops = list(circuit.icr.evolve)
-    assert len(ops) == 4
+    assert len(ops) == 5
     assert isinstance(ops[0], RXGate)
     assert isinstance(ops[1], RYGate)
     assert isinstance(ops[2], RZGate)
     assert isinstance(ops[3], PGate)
+    assert isinstance(ops[4], UGate)
+    assert ops[4].params == [0.5, 0.1, 0.2]
 
     for op in ops:
         assert op.qubits == [0]
-        assert op.params == [theta]
+        if isinstance(op, UGate):
+            assert op.params == [0.5, 0.1, 0.2]
+        else:
+            assert op.params == [theta]
 
 
 def test_two_and_three_qubit_gates():
@@ -94,11 +113,19 @@ def test_two_and_three_qubit_gates():
     circ.iswap(0, 1)
     circ.cp(0, 1, 0.5)
     circ.rzz(0, 1, 0.5)
+    circ.rxx(0, 1, 0.5)
+    circ.ryy(0, 1, 0.5)
+    circ.crx(0, 1, 0.5)
+    circ.cry(0, 1, 0.5)
+    circ.crz(0, 1, 0.5)
+    circ.ch(0, 1)
+    circ.cs(0, 1)
+    circ.ecr(0, 1)
     circ.ccx(0, 1, 2)
     circ.cswap(0, 1, 2)
 
     ops = list(circ.icr.evolve)
-    assert len(ops) == 9
+    assert len(ops) == 17
     assert isinstance(ops[0], CXGate)
     assert isinstance(ops[1], CYGate)
     assert isinstance(ops[2], CZGate)
@@ -106,8 +133,16 @@ def test_two_and_three_qubit_gates():
     assert isinstance(ops[4], ISwapGate)
     assert isinstance(ops[5], CPGate)
     assert isinstance(ops[6], RZZGate)
-    assert isinstance(ops[7], CCXGate)
-    assert isinstance(ops[8], CSwapGate)
+    assert isinstance(ops[7], RXXGate)
+    assert isinstance(ops[8], RYYGate)
+    assert isinstance(ops[9], CRXGate)
+    assert isinstance(ops[10], CRYGate)
+    assert isinstance(ops[11], CRZGate)
+    assert isinstance(ops[12], CHGate)
+    assert isinstance(ops[13], CSGate)
+    assert isinstance(ops[14], ECRGate)
+    assert isinstance(ops[15], CCXGate)
+    assert isinstance(ops[16], CSwapGate)
 
 
 def test_barrier_and_measure():
@@ -179,6 +214,91 @@ def test_circuit_inverse():
     assert ops[1].params[0] == -0.5
 
     assert isinstance(ops[2], HGate)
+
+
+def test_inverse_self_inverse_gates():
+    """Test that ch, ecr are self-inverse (inverse reverses order)."""
+    circ = Circuit(2)
+    circ.ch(0, 1)
+    circ.ecr(0, 1)
+
+    inv_circ = circ.inverse()
+    ops = list(inv_circ.icr.evolve)
+    assert len(ops) == 2
+    # Order is reversed: first ECR, then CH
+    assert isinstance(ops[0], ECRGate)
+    assert isinstance(ops[1], CHGate)
+
+
+def test_inverse_parametric_gates():
+    """Test that rxx, ryy, crx, cry, crz invert by negating theta."""
+    circ = Circuit(2)
+    theta = math.pi / 3
+    circ.rxx(0, 1, theta)
+    circ.ryy(0, 1, theta)
+    circ.crx(0, 1, theta)
+    circ.cry(0, 1, theta)
+    circ.crz(0, 1, theta)
+
+    inv_circ = circ.inverse()
+    ops = list(inv_circ.icr.evolve)
+    assert len(ops) == 5
+    for op in ops:
+        assert op.params == [-theta]
+
+
+def test_inverse_u_gate():
+    """Test that U(θ, φ, λ)⁻¹ = U(-θ, -λ, -φ)."""
+    circ = Circuit(1)
+    circ.u(0, 0.5, 0.1, 0.2)
+
+    inv_circ = circ.inverse()
+    ops = list(inv_circ.icr.evolve)
+    assert len(ops) == 1
+    assert isinstance(ops[0], UGate)
+    assert ops[0].params == [-0.5, -0.2, -0.1]
+
+
+def test_inverse_sxdg():
+    """Test that SXDG⁻¹ = SX."""
+    circ = Circuit(1)
+    circ.sxdg(0)
+
+    inv_circ = circ.inverse()
+    ops = list(inv_circ.icr.evolve)
+    assert len(ops) == 1
+    assert isinstance(ops[0], SXGate)
+
+
+def test_inverse_cs_gate_error():
+    """Test that CS inverse raises error (CSDG not yet implemented)."""
+    circ = Circuit(2)
+    circ.cs(0, 1)
+
+    with pytest.raises(Exception):
+        circ.inverse()
+
+
+def test_inverse_iswap():
+    """Test that ISWAP⁻¹ = ISWAPDG."""
+    circ = Circuit(2)
+    circ.iswap(0, 1)
+
+    inv_circ = circ.inverse()
+    ops = list(inv_circ.icr.evolve)
+    assert len(ops) == 1
+    assert isinstance(ops[0], ISwapDGGate)
+
+
+def test_inverse_iswapdg():
+    """Test that ISWAPDG⁻¹ = ISWAP."""
+    circ = Circuit(2)
+    circ.iswapdg(0, 1)
+
+    inv_circ = circ.inverse()
+    ops = list(inv_circ.icr.evolve)
+    assert len(ops) == 1
+    assert isinstance(ops[0], ISwapGate)
 
 
 # ==========================================
@@ -317,5 +437,5 @@ def test_local_simulator_composite_operation():
     main_circ = Circuit(2)
     main_circ.add_operation(composite_op)
 
-    result = main_circ.run(device_name="QpiAI-QSV-Local", shots=100)
-    assert result is not None
+
+

@@ -202,18 +202,18 @@ class Circuit:
                 "YGate",
                 "ZGate",
                 "IDGate",
-                "SXGate",
                 "CXGate",
                 "CYGate",
                 "CZGate",
+                "CHGate",
+                "ECRGate",
                 "SwapGate",
                 "CCXGate",
                 "CSwapGate",
-                "ISwapGate",
             ]:
                 return copy.deepcopy(op)
 
-            # S / T gates
+            # S / T / SX gates
             elif name == "SGate":
                 return SDGGate(*op.qubits)
             elif name == "SDGGate":
@@ -222,9 +222,45 @@ class Circuit:
                 return TDGGate(*op.qubits)
             elif name == "TDGGate":
                 return TGate(*op.qubits)
+            elif name == "SXDGGate":
+                from ..icr.circuitoperation import SXGate
+
+                return SXGate(*op.qubits)
+            elif name == "SXGate":
+                from ..icr.circuitoperation import SXDGGate
+
+                return SXDGGate(*op.qubits)
+            elif name == "ISwapGate":
+                from ..icr.circuitoperation import ISwapDGGate
+
+                return ISwapDGGate(*op.qubits)
+            elif name == "ISwapDGGate":
+                from ..icr.circuitoperation import ISwapGate
+
+                return ISwapGate(*op.qubits)
+
+            # U gate inverse: U(θ, φ, λ)⁻¹ = U(-θ, -λ, -φ)
+            elif name == "UGate":
+                inv_op = copy.deepcopy(op)
+                if inv_op.params is not None:
+                    theta, phi, lam = inv_op.params
+                    inv_op.params = [-theta, -lam, -phi]
+                return inv_op
 
             # Parametric gates (negate theta)
-            elif name in ["RXGate", "RYGate", "RZGate", "PGate", "CPGate", "RZZGate"]:
+            elif name in [
+                "RXGate",
+                "RYGate",
+                "RZGate",
+                "PGate",
+                "CPGate",
+                "RZZGate",
+                "RXXGate",
+                "RYYGate",
+                "CRXGate",
+                "CRYGate",
+                "CRZGate",
+            ]:
                 inv_op = copy.deepcopy(op)
                 if inv_op.params is not None:
                     inv_op.params = [-p for p in inv_op.params]
@@ -540,6 +576,19 @@ class Circuit:
         self._validate_qubit(qubit2)
         self.ISWAP(qubit1, qubit2)  # type: ignore
 
+    def iswapdg(self, qubit1: int, qubit2: int):
+        """
+        Apply a iSWAP-dagger gate between the specified qubits.
+
+        Args:
+            qubit1 (int): First qubit index
+            qubit2 (int): Second qubit index
+        """
+        self._validate_unique_qubits(qubit1, qubit2)
+        self._validate_qubit(qubit1)
+        self._validate_qubit(qubit2)
+        self.ISWAPDG(qubit1, qubit2)  # type: ignore
+
     def cp(self, control_qubit: int, target_qubit: int, theta: float):
         """
         Apply a controlled phase rotation with the specified control and target qubits.
@@ -567,6 +616,143 @@ class Circuit:
         self._validate_qubit(qubit1)
         self._validate_qubit(qubit2)
         self.RZZ(qubit1, qubit2, theta)  # type: ignore
+
+    def rxx(self, qubit1: int, qubit2: int, theta: float):
+        """
+        Apply an RXX gate (two-qubit rotation around XX) between the specified qubits.
+
+        Args:
+            qubit1 (int): First qubit index
+            qubit2 (int): Second qubit index
+            theta (float): Rotation angle in radians
+        """
+        self._validate_unique_qubits(qubit1, qubit2)
+        self._validate_qubit(qubit1)
+        self._validate_qubit(qubit2)
+        self.RXX(qubit1, qubit2, theta)  # type: ignore
+
+    def ryy(self, qubit1: int, qubit2: int, theta: float):
+        """
+        Apply an RYY gate (two-qubit rotation around YY) between the specified qubits.
+
+        Args:
+            qubit1 (int): First qubit index
+            qubit2 (int): Second qubit index
+            theta (float): Rotation angle in radians
+        """
+        self._validate_unique_qubits(qubit1, qubit2)
+        self._validate_qubit(qubit1)
+        self._validate_qubit(qubit2)
+        self.RYY(qubit1, qubit2, theta)  # type: ignore
+
+    def crx(self, control_qubit: int, target_qubit: int, theta: float):
+        """
+        Apply a controlled RX gate.
+
+        Args:
+            control_qubit (int): Control qubit index
+            target_qubit (int): Target qubit index
+            theta (float): Rotation angle in radians
+        """
+        self._validate_unique_qubits(control_qubit, target_qubit)
+        self._validate_qubit(control_qubit)
+        self._validate_qubit(target_qubit)
+        self.CRX(control_qubit, target_qubit, theta)  # type: ignore
+
+    def cry(self, control_qubit: int, target_qubit: int, theta: float):
+        """
+        Apply a controlled RY gate.
+
+        Args:
+            control_qubit (int): Control qubit index
+            target_qubit (int): Target qubit index
+            theta (float): Rotation angle in radians
+        """
+        self._validate_unique_qubits(control_qubit, target_qubit)
+        self._validate_qubit(control_qubit)
+        self._validate_qubit(target_qubit)
+        self.CRY(control_qubit, target_qubit, theta)  # type: ignore
+
+    def crz(self, control_qubit: int, target_qubit: int, theta: float):
+        """
+        Apply a controlled RZ gate.
+
+        Args:
+            control_qubit (int): Control qubit index
+            target_qubit (int): Target qubit index
+            theta (float): Rotation angle in radians
+        """
+        self._validate_unique_qubits(control_qubit, target_qubit)
+        self._validate_qubit(control_qubit)
+        self._validate_qubit(target_qubit)
+        self.CRZ(control_qubit, target_qubit, theta)  # type: ignore
+
+    def ch(self, control_qubit: int, target_qubit: int):
+        """
+        Apply a controlled H gate.
+
+        Args:
+            control_qubit (int): Control qubit index
+            target_qubit (int): Target qubit index
+        """
+        self._validate_unique_qubits(control_qubit, target_qubit)
+        self._validate_qubit(control_qubit)
+        self._validate_qubit(target_qubit)
+        self.CH(control_qubit, target_qubit)  # type: ignore
+
+    def cs(self, control_qubit: int, target_qubit: int):
+        """
+        Apply a controlled S gate.
+
+        Args:
+            control_qubit (int): Control qubit index
+            target_qubit (int): Target qubit index
+        """
+        self._validate_unique_qubits(control_qubit, target_qubit)
+        self._validate_qubit(control_qubit)
+        self._validate_qubit(target_qubit)
+        self.CS(control_qubit, target_qubit)  # type: ignore
+
+    def ecr(self, qubit1: int, qubit2: int):
+        """
+        Apply an ECR (echoed cross-resonance) gate between the specified qubits.
+
+        Args:
+            qubit1 (int): First qubit index
+            qubit2 (int): Second qubit index
+        """
+        self._validate_unique_qubits(qubit1, qubit2)
+        self._validate_qubit(qubit1)
+        self._validate_qubit(qubit2)
+        self.ECR(qubit1, qubit2)  # type: ignore
+
+    def u(self, qubit: int, theta: float, phi: float, lam: float):
+        """
+        Apply a single-qubit unitary gate specified by three Euler angles.
+
+        The U gate has the matrix form::
+
+            [[cos(θ/2), -e^{iλ}sin(θ/2)],
+             [e^{iφ}sin(θ/2),  e^{i(φ+λ)}cos(θ/2)]]
+
+        Args:
+            qubit (int): Qubit index
+            theta (float): Polar angle in radians
+            phi (float): Azimuthal angle in radians
+            lam (float): Phase angle in radians
+        """
+        self._validate_qubit(qubit)
+        self.U(qubit, theta, phi, lam)  # type: ignore
+
+    def sxdg(self, qubit: int):
+        """
+        Apply the inverse Sqrt(X) (SX†) gate.
+
+        Args:
+            qubit (int): Qubit index
+        """
+        self._validate_qubit(qubit)
+        self.SXDG(qubit)  # type: ignore
 
     def ccx(self, control_qubit1: int, control_qubit2: int, target_qubit: int):
         """
