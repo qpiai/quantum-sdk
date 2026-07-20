@@ -223,21 +223,21 @@ class Circuit:
             elif name == "TDGGate":
                 return TGate(*op.qubits)
             elif name == "SXDGGate":
-                from ..icr.circuitoperation import SXGate as SXG
+                from ..icr.circuitoperation import SXGate
 
-                return SXG(*op.qubits)
+                return SXGate(*op.qubits)
             elif name == "SXGate":
-                from ..icr.circuitoperation import SXDGGate as SXDG
+                from ..icr.circuitoperation import SXDGGate
 
-                return SXDG(*op.qubits)
+                return SXDGGate(*op.qubits)
             elif name == "ISwapGate":
-                from ..icr.circuitoperation import ISwapDGGate as ISwapDG
+                from ..icr.circuitoperation import ISwapDGGate
 
-                return ISwapDG(*op.qubits)
+                return ISwapDGGate(*op.qubits)
             elif name == "ISwapDGGate":
-                from ..icr.circuitoperation import ISwapGate as ISG
+                from ..icr.circuitoperation import ISwapGate
 
-                return ISG(*op.qubits)
+                return ISwapGate(*op.qubits)
 
             # U gate inverse: U(θ, φ, λ)⁻¹ = U(-θ, -λ, -φ)
             elif name == "UGate":
