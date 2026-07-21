@@ -33,6 +33,8 @@ from .jobmanager import Backend, JobManager, JobResult
 
 # Quantum algorithms
 from .algorithms import (
+    BernsteinVazirani,
+    DeutschJozsa,
     QFT,
     QRNG,
     GroverSearch,
@@ -77,6 +79,8 @@ __all__ = [
     "__license__",
     "__description__",
     # Quantum algorithms
+    "BernsteinVazirani",
+    "DeutschJozsa",
     "QFT",
     "GroverSearch",
     "ShorsAlgorithm",
