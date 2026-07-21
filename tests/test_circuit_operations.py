@@ -30,7 +30,12 @@ from qpiai_quantum.icr.circuitoperation import (
     CZGate,
     CHGate,
     CSGate,
+    CSDGGate,
     ECRGate,
+    DCXGate,
+    RCCXGate,
+    U2Gate,
+    CUGate,
     SwapGate,
     ISwapGate,
     ISwapDGGate,
@@ -270,13 +275,15 @@ def test_inverse_sxdg():
     assert isinstance(ops[0], SXGate)
 
 
-def test_inverse_cs_gate_error():
-    """Test that CS inverse raises error (CSDG not yet implemented)."""
+def test_inverse_cs_gate():
+    """Test that CS⁻¹ = CSDG."""
     circ = Circuit(2)
     circ.cs(0, 1)
 
-    with pytest.raises(Exception):
-        circ.inverse()
+    inv_circ = circ.inverse()
+    ops = list(inv_circ.icr.evolve)
+    assert len(ops) == 1
+    assert isinstance(ops[0], CSDGGate)
 
 
 def test_inverse_iswap():
@@ -438,4 +445,134 @@ def test_local_simulator_composite_operation():
     main_circ.add_operation(composite_op)
 
 
+
+
+# ==========================================
+# GATE COMPLETION TESTS (U2, CU, DCX, RCCX, CSDG)
+# ==========================================
+
+
+def test_u2_gate():
+    """Test U2(φ, λ) gate = U(π/2, φ, λ)."""
+    circ = Circuit(1)
+    circ.u2(0, 0.5, 0.3)
+
+    ops = list(circ.icr.evolve)
+    assert len(ops) == 1
+    assert isinstance(ops[0], U2Gate)
+    assert ops[0].params == [0.5, 0.3]
+
+
+def test_cu_gate():
+    """Test CU(θ, φ, λ, γ) controlled-U gate."""
+    circ = Circuit(2)
+    circ.cu(0, 1, 0.75, 0.2, 0.1, 0.5)
+
+    ops = list(circ.icr.evolve)
+    assert len(ops) == 1
+    assert isinstance(ops[0], CUGate)
+    assert ops[0].params == [0.75, 0.2, 0.1, 0.5]
+    assert ops[0].qubits == [0, 1]
+
+
+def test_dcx_gate():
+    """Test DCX (double CNOT) gate."""
+    circ = Circuit(2)
+    circ.dcx(0, 1)
+
+    ops = list(circ.icr.evolve)
+    assert len(ops) == 1
+    assert isinstance(ops[0], DCXGate)
+    assert ops[0].qubits == [0, 1]
+
+
+def test_rccx_gate():
+    """Test RCCX (relative-phase Toffoli) gate."""
+    circ = Circuit(3)
+    circ.rccx(0, 1, 2)
+
+    ops = list(circ.icr.evolve)
+    assert len(ops) == 1
+    assert isinstance(ops[0], RCCXGate)
+
+
+def test_csdg_gate():
+    """Test CSDG (controlled S†) gate."""
+    circ = Circuit(2)
+    circ.csdg(0, 1)
+
+    ops = list(circ.icr.evolve)
+    assert len(ops) == 1
+    assert isinstance(ops[0], CSDGGate)
+    assert ops[0].qubits == [0, 1]
+
+
+def test_inverse_dcx_gate():
+    """Test that DCX is self-inverse."""
+    circ = Circuit(2)
+    circ.dcx(0, 1)
+
+    inv_circ = circ.inverse()
+    ops = list(inv_circ.icr.evolve)
+    assert len(ops) == 1
+    assert isinstance(ops[0], DCXGate)
+
+
+def test_inverse_rccx_gate():
+    """Test that RCCX is self-inverse."""
+    circ = Circuit(3)
+    circ.rccx(0, 1, 2)
+
+    inv_circ = circ.inverse()
+    ops = list(inv_circ.icr.evolve)
+    assert len(ops) == 1
+    assert isinstance(ops[0], RCCXGate)
+
+
+def test_inverse_csdg_gate():
+    """Test that CSDG⁻¹ = CS."""
+    circ = Circuit(2)
+    circ.csdg(0, 1)
+
+    inv_circ = circ.inverse()
+    ops = list(inv_circ.icr.evolve)
+    assert len(ops) == 1
+    assert isinstance(ops[0], CSGate)
+
+
+def test_inverse_u2_gate():
+    """Test that U2(φ, λ)⁻¹ = U2(-λ - π, -φ + π)."""
+    circ = Circuit(1)
+    circ.u2(0, 0.5, 0.3)
+
+    inv_circ = circ.inverse()
+    ops = list(inv_circ.icr.evolve)
+    assert len(ops) == 1
+    assert isinstance(ops[0], U2Gate)
+    assert ops[0].params == pytest.approx([-0.3 - math.pi, -0.5 + math.pi])
+
+
+def test_inverse_cu_gate():
+    """Test that CU(θ, φ, λ, γ)⁻¹ = CU(-θ, -λ, -φ, -γ)."""
+    circ = Circuit(2)
+    circ.cu(0, 1, 0.75, 0.2, 0.1, 0.5)
+
+    inv_circ = circ.inverse()
+    ops = list(inv_circ.icr.evolve)
+    assert len(ops) == 1
+    assert isinstance(ops[0], CUGate)
+    assert ops[0].params == pytest.approx([-0.75, -0.1, -0.2, -0.5])
+
+
+def test_all_new_gates_run_simulation():
+    """Test that all new gates execute without error in local simulator."""
+    circ = Circuit(4)
+    circ.u2(0, 0.5, 0.3)
+    circ.cu(0, 1, 0.75, 0.2, 0.1, 0.5)
+    circ.dcx(1, 2)
+    circ.rccx(0, 1, 3)
+    circ.csdg(2, 3)
+
+    result = circ.run(device_name="QpiAI-QSV-Local", shots=100)
+    assert result is not None
 

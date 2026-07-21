@@ -155,6 +155,13 @@ class UGate(CircuitOperation):
         )
 
 
+class U2Gate(CircuitOperation):
+    def __init__(self, qubit: int, phi: float, lam: float):
+        super().__init__(
+            OperationType.N_QUBIT_PARAMETRIC, "U2", [qubit], [phi, lam]
+        )
+
+
 # Two-qubit non-parametric gates
 class CXGate(CircuitOperation):
     def __init__(self, control_qubit: int, target_qubit: int):
@@ -188,6 +195,22 @@ class CSGate(CircuitOperation):
     def __init__(self, control_qubit: int, target_qubit: int):
         super().__init__(
             OperationType.N_QUBIT_NON_PARAMETRIC, "CS", [control_qubit, target_qubit]
+        )
+
+
+class CSDGGate(CircuitOperation):
+    def __init__(self, control_qubit: int, target_qubit: int):
+        super().__init__(
+            OperationType.N_QUBIT_NON_PARAMETRIC,
+            "CSdg",
+            [control_qubit, target_qubit],
+        )
+
+
+class DCXGate(CircuitOperation):
+    def __init__(self, qubit1: int, qubit2: int):
+        super().__init__(
+            OperationType.N_QUBIT_NON_PARAMETRIC, "DCX", [qubit1, qubit2]
         )
 
 
@@ -276,6 +299,24 @@ class CRZGate(CircuitOperation):
         )
 
 
+class CUGate(CircuitOperation):
+    def __init__(
+        self,
+        control_qubit: int,
+        target_qubit: int,
+        theta: float,
+        phi: float,
+        lam: float,
+        gamma: float,
+    ):
+        super().__init__(
+            OperationType.N_QUBIT_PARAMETRIC,
+            "CU",
+            [control_qubit, target_qubit],
+            [theta, phi, lam, gamma],
+        )
+
+
 class RZZGate(CircuitOperation):
     def __init__(self, qubit1: int, qubit2: int, theta: float):
         super().__init__(
@@ -301,6 +342,15 @@ class CCXGate(CircuitOperation):
         super().__init__(
             OperationType.N_QUBIT_NON_PARAMETRIC,
             "CCX",
+            [control_qubit1, control_qubit2, target_qubit],
+        )
+
+
+class RCCXGate(CircuitOperation):
+    def __init__(self, control_qubit1: int, control_qubit2: int, target_qubit: int):
+        super().__init__(
+            OperationType.N_QUBIT_NON_PARAMETRIC,
+            "RCCX",
             [control_qubit1, control_qubit2, target_qubit],
         )
 

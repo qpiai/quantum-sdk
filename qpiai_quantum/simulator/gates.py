@@ -188,6 +188,7 @@ ALL_KNOWN_GATES: set[str] = {
     "cz",
     "ch",
     "cs",
+    "csdg",
     "swap",
     "iswap",
     "iswapdg",
@@ -272,6 +273,8 @@ def gate_spec(
         return 2, controlled(H, 1)
     if name == "cs":
         return 2, controlled(S, 1)
+    if name == "csdg":
+        return 2, controlled(SDG, 1)
     if name == "swap":
         return 2, SWAP
     if name == "iswap":
