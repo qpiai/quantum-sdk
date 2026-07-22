@@ -1,6 +1,6 @@
 [project]
 name = "qpiai-quantum"
-version = "0.1.43"
+version = "0.2.0"
 description = "A comprehensive Python-based quantum computing framework providing modular implementations of quantum algorithms and optimization solvers"
 readme = "README.md"
 requires-python = ">=3.10"
