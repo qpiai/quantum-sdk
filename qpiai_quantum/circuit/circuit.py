@@ -1104,6 +1104,7 @@ class Circuit:
             return 0
 
         qubit_depths = [0] * self.icr.num_qubits
+        actual_qubit = 0
         for operation in self.icr.evolve:
             if operation.operation_type == OperationType.BARRIER:
                 continue

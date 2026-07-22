@@ -340,6 +340,25 @@ def test_circuit_depth():
     assert circ.depth() == 3
 
 
+def test_circuit_depth_measure_only():
+    circ = Circuit(2, 2)
+    circ.measure(0, 0)
+    circ.measure(1, 1)
+    assert circ.depth() == 0
+
+
+def test_circuit_depth_barrier_only():
+    circ = Circuit(3)
+    circ.barrier(0, 1)
+    circ.barrier(1, 2)
+    assert circ.depth() == 0
+
+
+def test_circuit_depth_empty():
+    circ = Circuit(3)
+    assert circ.depth() == 0
+
+
 def test_circuit_to_json():
     circ = Circuit(2)
     circ.h(0)
