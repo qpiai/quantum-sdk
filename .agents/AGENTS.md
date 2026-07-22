@@ -23,6 +23,10 @@ This repository contains the **QpiAI Quantum SDK**, a comprehensive Python-based
 
 1. **Type Annotations**: Always include accurate type hints for function arguments and return types. The project uses static type checking, and new code must be compatible with existing type definitions.
 2. **Testing**: Write or update tests in the `tests/` directory when adding non-trivial features, business logic, or fixing bugs. Do NOT create redundant or trivial unit tests for administrative module wiring or re-exports (e.g., `__init__.py` aliases). Use `pytest` for testing.
+   - **Environment Flags for Skipped Tests**:
+     - `TEST_OPTIMIZERS=1`: Enables optimizer algorithm test suite (`tests/algorithms/test_optimizers.py`).
+     - `RUN_ALGO_CORRECTNESS=1`: Enables algorithm correctness tests across `tests/algorithms/`.
+     - Command to run full test suite including skipped tests: `TEST_OPTIMIZERS=1 RUN_ALGO_CORRECTNESS=1 uv run pytest`.
 3. **Documentation**: Ensure docstrings are provided for public classes and methods. If modifying public APIs, consider if updates to `sdk_notebooks` are necessary.
 4. **Code Quality**: Keep code modular. Respect the existing formatting rules as defined in `pyproject.toml`.
 5. **Core Abstractions**: Be cautious when modifying core abstractions like `Circuit`, `CircuitOperation`, or simulation backends. Avoid breaking changes as many algorithms depend on these foundational classes.
