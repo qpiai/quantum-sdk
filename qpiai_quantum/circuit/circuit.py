@@ -1119,8 +1119,7 @@ class Circuit:
             for q in involved_qubits:
                 qubit_depths[q] = max_depth + 1
 
-            actual_qubit = max(qubit_depths)
-        return actual_qubit if qubit_depths else 0
+        return max(qubit_depths) if qubit_depths else 0
 
     def size(self) -> int:
         return len(self.icr.evolve)
