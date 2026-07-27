@@ -213,13 +213,15 @@ class AmplitudeEstimation(QuantumAlgorithm):
         if not counts:
             return 0.0
 
-        most_frequent = max(counts.items(), key=lambda x: x[1])[0]
-        y = int(most_frequent, 2)
+        total_shots = sum(counts.values())
+        weighted_amplitude = 0.0
 
-        theta = math.pi * y / (2**m)
-        estimated_amplitude = math.sin(theta) ** 2
+        for bitstring, count in counts.items():
+            y = int(bitstring, 2)
+            theta = math.pi * y / (2**m)
+            weighted_amplitude += (count / total_shots) * (math.sin(theta) ** 2)
 
-        return float(estimated_amplitude)
+        return float(weighted_amplitude)
 
 
 class IterativeAmplitudeEstimation(QuantumAlgorithm):
