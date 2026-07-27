@@ -75,14 +75,12 @@ class EstimationProblem:
 
 class AmplitudeEstimation(QuantumAlgorithm):
     """
-    Canonical Quantum Amplitude Estimation (QAE) — **not yet implemented**.
+    Canonical Quantum Amplitude Estimation (QAE) using Quantum Phase Estimation (QPE).
 
-    The canonical QPE-based variant is not yet available.  Canonical QAE
-    requires constructing controlled Grover operators, which in turn need
-    a general controlled-subcircuit compiler not yet present in the SDK.
-
-    Use :class:`IterativeAmplitudeEstimation` for currently supported
-    amplitude estimation workflows.
+    QAE uses an evaluation register of m qubits initialized in superposition,
+    applies controlled powers of the Grover operator C-Q^(2^j), and then
+    applies Inverse QFT on the evaluation register to estimate the amplitude
+    a = sin^2(theta_a).
     """
 
     def __init__(self, num_evaluation_qubits: int):
@@ -90,17 +88,137 @@ class AmplitudeEstimation(QuantumAlgorithm):
         super().__init__(num_qubits=0, name="Amplitude Estimation")
         self.description = "Canonical Amplitude Estimation using QPE"
 
-    def build_circuit(self, problem: EstimationProblem) -> Circuit:
-        raise NotImplementedError(
-            "Canonical QAE requires native implementation of controlled circuits."
-        )
+    def _apply_controlled_s_chi(
+        self,
+        circuit: Circuit,
+        control_qubit: int,
+        state_offset: int,
+        problem: EstimationProblem,
+    ):
+        """Apply controlled phase-flip S_chi on good states."""
+        obj_qubits = [state_offset + q for q in problem.objective_qubits]
+        n_obj = len(obj_qubits)
 
-    def estimate(self, problem: EstimationProblem) -> float:
-        raise NotImplementedError(
-            "Canonical QAE requires native implementation of controlled sub-circuits, "
-            "which are not yet fully supported by the basic Circuit builder. "
-            "Please use IterativeAmplitudeEstimation instead."
-        )
+        if n_obj == 1:
+            circuit.cz(control_qubit, obj_qubits[0])
+        elif n_obj == 2:
+            circuit.h(obj_qubits[1])
+            circuit.ccx(control_qubit, obj_qubits[0], obj_qubits[1])
+            circuit.h(obj_qubits[1])
+        else:
+            controls = [control_qubit] + obj_qubits[:-1]
+            target = obj_qubits[-1]
+            circuit.h(target)
+            circuit.mcx(controls, target)
+            circuit.h(target)
+
+    def _apply_controlled_s_0(
+        self,
+        circuit: Circuit,
+        control_qubit: int,
+        state_offset: int,
+        n_state_qubits: int,
+    ):
+        """Apply controlled phase-flip S_0 on zero state |0...0>."""
+        state_qubits = [state_offset + q for q in range(n_state_qubits)]
+
+        for q in state_qubits:
+            circuit.x(q)
+
+        if n_state_qubits == 1:
+            circuit.cz(control_qubit, state_qubits[0])
+        elif n_state_qubits == 2:
+            circuit.h(state_qubits[1])
+            circuit.ccx(control_qubit, state_qubits[0], state_qubits[1])
+            circuit.h(state_qubits[1])
+        else:
+            controls = [control_qubit] + state_qubits[:-1]
+            target = state_qubits[-1]
+            circuit.h(target)
+            circuit.mcx(controls, target)
+            circuit.h(target)
+
+        for q in state_qubits:
+            circuit.x(q)
+
+    def _apply_controlled_grover(
+        self,
+        circuit: Circuit,
+        control_qubit: int,
+        state_offset: int,
+        problem: EstimationProblem,
+        power: int,
+    ):
+        """
+        Apply controlled Grover operator Q^power controlled by control_qubit.
+
+        Controlled-Q = A · (Controlled-S_0) · A^\dagger · (Controlled-S_chi)
+        """
+        n_state = problem.num_qubits
+        state_qubits = [state_offset + q for q in range(n_state)]
+        A = problem.state_preparation
+        A_inv = A.inverse()
+
+        for _ in range(power):
+            self._apply_controlled_s_chi(circuit, control_qubit, state_offset, problem)
+            circuit.compose(A_inv, state_qubits)
+            self._apply_controlled_s_0(circuit, control_qubit, state_offset, n_state)
+            circuit.compose(A, state_qubits)
+
+    def build_circuit(self, problem: EstimationProblem) -> Circuit:
+        m = self.num_evaluation_qubits
+        n = problem.num_qubits
+        total_qubits = m + n
+
+        self.num_qubits = total_qubits
+        self.circuit = Circuit(total_qubits, m)
+
+        # 1. Initialize evaluation register to |+>
+        for i in range(m):
+            self.circuit.h(i)
+
+        # 2. Initialize state register with A
+        state_qubits = [m + q for q in range(n)]
+        self.circuit.compose(problem.state_preparation, state_qubits)
+
+        # 3. Apply controlled Grover powers C-Q^(2^j)
+        for j in range(m):
+            power = 2**j
+            self._apply_controlled_grover(self.circuit, j, m, problem, power)
+
+        # 4. Apply Inverse QFT on evaluation register
+        QFT.apply_inverse_qft_to_circuit(self.circuit, start=0, n=m)
+
+        # 5. Measure evaluation register
+        for i in range(m):
+            self.circuit.measure(i, i)
+
+        return self.circuit
+
+    def estimate(
+        self,
+        problem: EstimationProblem,
+        shots: int = 1024,
+        device_name: str = "QpiAI-QSV-Local",
+    ) -> float:
+        """
+        Estimate amplitude a = sin^2(theta_a) using Canonical QAE.
+        """
+        m = self.num_evaluation_qubits
+        circ = self.build_circuit(problem)
+        result = circ.run(shots=shots, device_name=device_name)
+        counts = result.get()["counts"]
+
+        if not counts:
+            return 0.0
+
+        most_frequent = max(counts.items(), key=lambda x: x[1])[0]
+        y = int(most_frequent, 2)
+
+        theta = math.pi * y / (2**m)
+        estimated_amplitude = math.sin(theta) ** 2
+
+        return float(estimated_amplitude)
 
 
 class IterativeAmplitudeEstimation(QuantumAlgorithm):

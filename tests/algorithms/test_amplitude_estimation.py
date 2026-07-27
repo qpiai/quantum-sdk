@@ -58,13 +58,31 @@ def test_iterative_amplitude_estimation(mock_run):
     assert abs(estimated_prob - expected_prob) < 0.05
 
 
-def test_canonical_qae_not_implemented():
+def test_canonical_qae_build_circuit():
     circuit = Circuit(1)
+    circuit.ry(0, 0.6)
     problem = EstimationProblem(state_preparation=circuit, objective_qubits=[0])
     qae = AmplitudeEstimation(num_evaluation_qubits=3)
 
-    with pytest.raises(NotImplementedError):
-        qae.estimate(problem)
+    built_circuit = qae.build_circuit(problem)
+    # Total qubits = 3 evaluation + 1 state qubit = 4
+    assert built_circuit.num_qubits == 4
+    assert built_circuit.num_clbits == 3
+
+
+def test_canonical_qae_estimation_local():
+    theta = 0.8
+    expected_prob = math.sin(theta / 2) ** 2
+
+    circuit = Circuit(1)
+    circuit.ry(0, theta)
+    problem = EstimationProblem(state_preparation=circuit, objective_qubits=[0])
+
+    qae = AmplitudeEstimation(num_evaluation_qubits=4)
+    estimated_prob = qae.estimate(problem, shots=1000, device_name="QpiAI-QSV-Local")
+
+    # Allow reasonable tolerance for 4 evaluation qubits
+    assert abs(estimated_prob - expected_prob) < 0.15
 
 
 @pytest.mark.skipif(
