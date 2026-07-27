@@ -160,6 +160,7 @@ class AmplitudeEstimation(QuantumAlgorithm):
         A_inv = A.inverse()
 
         for _ in range(power):
+            circuit.z(control_qubit)
             self._apply_controlled_s_chi(circuit, control_qubit, state_offset, problem)
             circuit.compose(A_inv, state_qubits)
             self._apply_controlled_s_0(circuit, control_qubit, state_offset, n_state)
