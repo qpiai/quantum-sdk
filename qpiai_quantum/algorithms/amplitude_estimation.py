@@ -149,7 +149,7 @@ class AmplitudeEstimation(QuantumAlgorithm):
         problem: EstimationProblem,
         power: int,
     ):
-        """
+        r"""
         Apply controlled Grover operator Q^power controlled by control_qubit.
 
         Controlled-Q = A · (Controlled-S_0) · A^\dagger · (Controlled-S_chi)

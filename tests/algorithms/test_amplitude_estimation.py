@@ -78,11 +78,11 @@ def test_canonical_qae_estimation_local():
     circuit.ry(0, theta)
     problem = EstimationProblem(state_preparation=circuit, objective_qubits=[0])
 
-    qae = AmplitudeEstimation(num_evaluation_qubits=4)
+    qae = AmplitudeEstimation(num_evaluation_qubits=6)
     estimated_prob = qae.estimate(problem, shots=1000, device_name="QpiAI-QSV-Local")
 
-    # Allow reasonable tolerance for 4 evaluation qubits
-    assert abs(estimated_prob - expected_prob) < 0.15
+    # Allow 0.05 tolerance with 6 evaluation qubits
+    assert abs(estimated_prob - expected_prob) < 0.05
 
 
 @pytest.mark.skipif(
