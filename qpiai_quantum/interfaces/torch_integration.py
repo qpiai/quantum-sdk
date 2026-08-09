@@ -95,7 +95,7 @@ class QuantumLayer(nn.Module):
     users to easily drop a quantum circuit into standard PyTorch models by passing
     the circuit and observables directly.
     """
-    def __init__(self, circuit: Circuit, observables: list, num_params: int, device_name: str = "QpiAI-QSV-Local", shots: int = 1024):
+    def __init__(self, circuit: Circuit, observables: list, num_params: int, device_name: str = "QpiAI-QSV-Local", shots: int = 1024, **run_kwargs):
         """
         Args:
             circuit (Circuit): The parameterized quantum circuit template.
