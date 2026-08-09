@@ -95,20 +95,30 @@ class QuantumLayer(nn.Module):
     users to easily drop a quantum circuit into standard PyTorch models by passing
     the circuit and observables directly.
     """
+<<<<<<< HEAD
     def __init__(self, circuit: Circuit, observables: list, num_params: int, device_name: str = "QpiAI-QSV-Local", shots: int = 1024):
+=======
+    def __init__(self, circuit: Circuit, observables: list, num_params: int):
+>>>>>>> d4502824ef00975ce61e97c87e25d3112dc65a6c
         """
         Args:
             circuit (Circuit): The parameterized quantum circuit template.
             observables (list): A list of tuples specifying observables, e.g., [(qubit_idx, 'Z')].
             num_params (int): The number of trainable parameters in the circuit.
+<<<<<<< HEAD
             device_name (str): The execution device (e.g., 'QpiAI-QSV-Local' or 'QpiAI-Indus-1').
             shots (int): The number of measurement shots.
+=======
+>>>>>>> d4502824ef00975ce61e97c87e25d3112dc65a6c
         """
         super().__init__()
         self.circuit = circuit
         self.observables = observables
+<<<<<<< HEAD
         self.device_name = device_name
         self.shots = shots
+=======
+>>>>>>> d4502824ef00975ce61e97c87e25d3112dc65a6c
         self.q_params = nn.Parameter(torch.rand(num_params))
 
     def _bind_parameters(self, params_np: np.ndarray) -> Circuit:
@@ -134,13 +144,18 @@ class QuantumLayer(nn.Module):
                 bound_circuit.add_operation(op)
         return bound_circuit
 
+<<<<<<< HEAD
     def forward(self, inputs: torch.Tensor | None = None) -> torch.Tensor:
+=======
+    def forward(self, inputs: torch.Tensor = None) -> torch.Tensor:
+>>>>>>> d4502824ef00975ce61e97c87e25d3112dc65a6c
         """
         Forward pass for the quantum layer.
         """
         def cost_fn(params_np: np.ndarray) -> float:
             bound_circuit = self._bind_parameters(params_np)
             
+<<<<<<< HEAD
             # If local simulator, we can optionally use exact statevectors. 
             # Otherwise (e.g. real hardware), we must use measurement counts.
             need_sv = (self.device_name == "QpiAI-QSV-Local")
@@ -186,6 +201,23 @@ class QuantumLayer(nn.Module):
                             term_exp += eigenvalue * count
                         expectation += term_exp / total_shots
                         
+=======
+            # Use the local statevector simulator to compute expectations
+            result = bound_circuit.run(shots=1, need_statevector=True, device_name="QpiAI-QSV-Local")
+            state = np.array(result.statevector, dtype=complex)
+            n_qubits = bound_circuit.num_qubits
+            
+            expectation = 0.0
+            for qubit_idx, op_name in self.observables:
+                if op_name == 'Z':
+                    evolved_state = state.copy()
+                    shape = (2 ** (n_qubits - 1 - qubit_idx), 2, 2**qubit_idx)
+                    state_tensor = evolved_state.reshape(shape)
+                    state_tensor[:, 1, :] *= -1
+                    evolved_state = state_tensor.reshape(-1)
+                    expectation += np.vdot(state, evolved_state).real
+                    
+>>>>>>> d4502824ef00975ce61e97c87e25d3112dc65a6c
             return float(expectation)
 
         return ParameterShiftFunction.apply(cost_fn, self.q_params)
