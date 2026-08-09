@@ -5,9 +5,9 @@ from torch.autograd import gradcheck
 
 # Assuming the user has these available in their package
 from qpiai_quantum.interfaces.torch_interface import ParameterShiftFunction as SequentialFunction
-# We will import the batched one as well (assuming the user saved it)
+# We will import the batched one as well
 try:
-    from qpiai_quantum.interfaces.torch_interface_batching import ParameterShiftFunction as BatchedFunction
+    from qpiai_quantum.interfaces.torch_integration import ParameterShiftFunction as BatchedFunction
 except ImportError:
     # Fallback in case it's not saved properly yet
     BatchedFunction = None
@@ -44,7 +44,7 @@ def test_sequential_gradients():
         f"Sequential Gradients do not match! Expected: {expected_grad}, Got: {params.grad}"
 
 
-@pytest.mark.skipif(BatchedFunction is None, reason="torch_interface_batching not found")
+@pytest.mark.skipif(BatchedFunction is None, reason="torch_integration not found")
 def test_batched_gradients():
     """
     Verify that the batched (concurrent) PyTorch interface computes gradients correctly.
@@ -82,7 +82,7 @@ def test_gradcheck_sequential():
     assert test_passed, "Gradcheck failed for SequentialFunction"
 
 
-@pytest.mark.skipif(BatchedFunction is None, reason="torch_interface_batching not found")
+@pytest.mark.skipif(BatchedFunction is None, reason="torch_integration not found")
 def test_gradcheck_batched():
     """
     Use PyTorch's built-in gradcheck for the batched interface.
@@ -97,15 +97,15 @@ def test_gradcheck_batched():
     assert test_passed, "Gradcheck failed for BatchedFunction"
 
 
-@pytest.mark.skipif(BatchedFunction is None, reason="torch_interface_batching not found")
+@pytest.mark.skipif(BatchedFunction is None, reason="torch_integration not found")
 def test_quantum_layer():
     """
     Test the QuantumLayer with a real Circuit and Z-observable to ensure it mathematically 
     matches analytical gradients using the QpiAI Quantum Simulator.
     """
     from qpiai_quantum.circuit import Circuit
-    # The QuantumLayer is defined in torch_interface_batching.py
-    from qpiai_quantum.interfaces.torch_interface_batching import QuantumLayer
+    # The QuantumLayer is defined in torch_integration.py
+    from qpiai_quantum.interfaces.torch_integration import QuantumLayer
 
     # 1. Create a 1-qubit circuit with a single parametric RX gate
     circuit = Circuit(1)
