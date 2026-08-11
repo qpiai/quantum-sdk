@@ -8,6 +8,7 @@
     "ansatze",
     "statevector",
     "statevectors",
+    "frombuffer",
     "qaoa",
     "vqe",
     "qpe",
@@ -286,7 +287,10 @@
     "njit",
     "prange",
     "fastmath",
-    "psutil"
+    "psutil",
+    "seaborn",
+    "fromiter",
+    "imags"
   ],
   "ignorePaths": [
     "node_modules/**",

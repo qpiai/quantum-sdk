@@ -127,7 +127,11 @@ class SimonAlgorithm(QuantumAlgorithm):
                 if k != first_one and reversed_s[k] == "1":
                     self.circuit.cx(first_one, n + k)
 
-    def find_hidden_string(self, max_attempts: int | None = None) -> str:
+    def find_hidden_string(
+        self,
+        max_attempts: int | None = None,
+        device_name: str = "QpiAI-QSV-Local",
+    ) -> str:
         """
         Find the hidden bitstring by running the algorithm multiple times.
 
@@ -139,6 +143,7 @@ class SimonAlgorithm(QuantumAlgorithm):
         Args:
             max_attempts (int, optional): Maximum number of algorithm runs
                 (defaults to 10*n to ensure reliability)
+            device_name (str): Device to run on. Default: QpiAI-QSV-Local.
 
         Returns:
             str: The recovered hidden bitstring
@@ -154,7 +159,7 @@ class SimonAlgorithm(QuantumAlgorithm):
         zero_str = "0" * n
 
         for _ in range(max_attempts):
-            result = self.run(shots=1, experiment_name="Default Experiment")
+            result = self.run(shots=1, experiment_name="Default Experiment", device_name=device_name)
             counts = result.get()["counts"]
             measured = list(counts.keys())[0]
 

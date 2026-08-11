@@ -386,5 +386,36 @@ class TestCheck(unittest.TestCase):
         self.assertIsInstance(result, bool)
 
 
+class TestRelativeEntropyCoherence(unittest.TestCase):
+    """Test relative entropy of coherence."""
+
+    def test_incoherent_state(self):
+        """Incoherent state |0⟩⟨0| should have 0 relative entropy of coherence."""
+        rho = np.array([[1, 0], [0, 0]], dtype=complex)
+        dm = DensityMatrix(rho)
+        self.assertAlmostEqual(dm.relative_entropy_coherence(), 0.0, places=7)
+
+    def test_plus_state(self):
+        """Maximally coherent state |+⟩⟨+| should have relative entropy of coherence = 1.0."""
+        rho = np.array([[0.5, 0.5], [0.5, 0.5]], dtype=complex)
+        dm = DensityMatrix(rho)
+        self.assertAlmostEqual(dm.relative_entropy_coherence(), 1.0, places=7)
+
+    def test_maximally_mixed_state(self):
+        """Maximally mixed state I/2 should have 0 relative entropy of coherence."""
+        rho = np.eye(2, dtype=complex) / 2
+        dm = DensityMatrix(rho)
+        self.assertAlmostEqual(dm.relative_entropy_coherence(), 0.0, places=7)
+
+    def test_bell_state(self):
+        """Bell state |Φ+⟩ should have relative entropy of coherence = 1.0."""
+        phi_plus = np.array(
+            [[0.5, 0, 0, 0.5], [0, 0, 0, 0], [0, 0, 0, 0], [0.5, 0, 0, 0.5]],
+            dtype=complex,
+        )
+        dm = DensityMatrix(phi_plus)
+        self.assertAlmostEqual(dm.relative_entropy_coherence(), 1.0, places=7)
+
+
 if __name__ == "__main__":
     unittest.main()

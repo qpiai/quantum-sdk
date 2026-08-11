@@ -151,7 +151,11 @@ class DeutschJozsa(QuantumAlgorithm):
             for i in range(self.num_qubits):
                 self.circuit.cx(i, ancilla)
 
-    def determine_function_type(self, shots: int = 1024) -> str:
+    def determine_function_type(
+        self,
+        shots: int = 1024,
+        device_name: str = "QpiAI-QSV-Local",
+    ) -> str:
         """
         Run the algorithm and determine if the function is constant or balanced.
 
@@ -161,6 +165,7 @@ class DeutschJozsa(QuantumAlgorithm):
 
         Args:
             shots (int): Number of measurement shots. Default: 1024.
+            device_name (str): Device to run on. Default: QpiAI-QSV-Local.
 
         Returns:
             str: ``"constant"`` or ``"balanced"``
@@ -171,7 +176,7 @@ class DeutschJozsa(QuantumAlgorithm):
         if self.circuit is None:
             self.build_circuit()
 
-        result = self.run(shots=shots, experiment_name="Default Experiment")
+        result = self.run(shots=shots, experiment_name="Default Experiment", device_name=device_name)
         return self.interpret_result(result)
 
     @staticmethod

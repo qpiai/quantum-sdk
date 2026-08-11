@@ -30,3 +30,10 @@ repos:
       - id: check-merge-conflict
       - id: end-of-file-fixer
       - id: trailing-whitespace
+
+  - repo: https://github.com/pypa/pip-audit
+    rev: v2.7.3
+    hooks:
+      - id: pip-audit
+        files: ^(pyproject\.toml|uv\.lock)$
+        pass_filenames: false

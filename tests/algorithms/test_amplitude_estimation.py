@@ -74,19 +74,11 @@ def test_canonical_qae_not_implemented():
 def test_amplitude_estimation_correctness():
     import uuid
 
-    api_key = os.getenv("API_KEY")
-    if api_key:
-        from qpiai_quantum.authentication.auth import QpiAIQuantumAuth
-
-        try:
-            QpiAIQuantumAuth.login(api_key)
-        except Exception:
-            pass
     theta = 0.8
     expected_prob = math.sin(theta / 2) ** 2
     circuit = Circuit(1, name=f"test_qae_{uuid.uuid4().hex[:8]}")
     circuit.ry(0, theta)
     problem = EstimationProblem(state_preparation=circuit, objective_qubits=[0])
     iae = IterativeAmplitudeEstimation(epsilon_target=0.08, alpha=0.05)
-    estimated_prob = iae.estimate(problem, shots=200)
+    estimated_prob = iae.estimate(problem, shots=200, device_name="QpiAI-QSV-Local")
     assert abs(estimated_prob - expected_prob) < 0.15

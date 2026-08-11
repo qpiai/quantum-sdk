@@ -146,7 +146,10 @@ class QuantumPhaseEstimation(QuantumAlgorithm):
                 pass
 
     def estimate_phase(
-        self, unitary: str = "T", eigenstate_preparation: Callable | None = None
+        self,
+        unitary: str = "T",
+        eigenstate_preparation: Callable | None = None,
+        device_name: str = "QpiAI-QSV-Local",
     ) -> float:
         """
         Estimate the phase θ by running the algorithm.
@@ -154,6 +157,7 @@ class QuantumPhaseEstimation(QuantumAlgorithm):
         Args:
             unitary (str): Unitary operator name
             eigenstate_preparation (Callable, optional): Eigenstate preparation
+            device_name (str): Device to run on. Default: QpiAI-QSV-Local.
 
         Returns:
             float: Estimated phase θ (between 0 and 1)
@@ -161,7 +165,7 @@ class QuantumPhaseEstimation(QuantumAlgorithm):
         self.build_circuit(
             unitary=unitary, eigenstate_preparation=eigenstate_preparation
         )
-        result = self.run(shots=1)
+        result = self.run(shots=1, device_name=device_name)
 
         # Get measurement result
         counts = result.get()["counts"]

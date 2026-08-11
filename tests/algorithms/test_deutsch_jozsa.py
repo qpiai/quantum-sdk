@@ -78,17 +78,6 @@ class TestDJExecutionWithMock(unittest.TestCase):
     "Skipping correctness test. Set RUN_ALGO_CORRECTNESS=1 and API_KEY in environment to run.",
 )
 class TestDJCorrectness(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        api_key = os.getenv("API_KEY")
-        if api_key:
-            from qpiai_quantum.authentication.auth import QpiAIQuantumAuth
-
-            try:
-                QpiAIQuantumAuth.login(api_key)
-            except Exception:
-                pass
-
     def test_live_determine_function_type(self):
         import uuid
 
@@ -97,7 +86,9 @@ class TestDJCorrectness(unittest.TestCase):
         dj_bal.build_circuit()
         assert dj_bal.circuit is not None
         dj_bal.circuit.name = f"dj_bal_{uuid.uuid4().hex[:8]}"
-        res_bal = dj_bal.determine_function_type(shots=100)
+        res_bal = dj_bal.determine_function_type(
+            shots=100, device_name="QpiAI-QSV-Local"
+        )
         self.assertEqual(res_bal, "balanced")
 
         # Test constant oracle on 2 qubits
@@ -105,7 +96,9 @@ class TestDJCorrectness(unittest.TestCase):
         dj_const.build_circuit()
         assert dj_const.circuit is not None
         dj_const.circuit.name = f"dj_const_{uuid.uuid4().hex[:8]}"
-        res_const = dj_const.determine_function_type(shots=100)
+        res_const = dj_const.determine_function_type(
+            shots=100, device_name="QpiAI-QSV-Local"
+        )
         self.assertEqual(res_const, "constant")
 
 
