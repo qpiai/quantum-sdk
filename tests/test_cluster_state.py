@@ -93,7 +93,6 @@ class TestClusterState(unittest.TestCase):
     )
     def test_local_execution(self):
         """Test local execution of cluster state preparation."""
-        from qpiai_quantum.authentication.user import get_user
         user = get_user()
         if user is None or not user.name or not user.email:
             self.skipTest("Authentication required for local execution")
@@ -108,6 +107,7 @@ class TestClusterState(unittest.TestCase):
         self.assertGreaterEqual(len(counts), 1)
         is_valid = cluster_gen.verify_entanglement(result)
         self.assertTrue(is_valid, "Cluster state entanglement verification failed")
+
     @unittest.skipUnless(
         os.getenv("API_KEY"),
         "API key not found in environment",

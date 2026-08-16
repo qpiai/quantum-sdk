@@ -285,7 +285,9 @@ class ShorsAlgorithm(QuantumAlgorithm):
 
         # Build and run circuit
         self.build_circuit(a, precision_qubits)
-        result = self.run(shots=1, experiment_name="Default Experiment", device_name=device_name)
+        result = self.run(
+            shots=1, experiment_name="Default Experiment", device_name=device_name
+        )
 
         # Extract measurement result
         counts = result.get()["counts"]

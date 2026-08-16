@@ -63,6 +63,7 @@ dev = [
     "pytest-cov",
     "mypy",
     "ruff",
+    "pre-commit",
     "codespell",
     "pip-audit",
     "twine",

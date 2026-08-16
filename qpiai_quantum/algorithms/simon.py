@@ -159,7 +159,9 @@ class SimonAlgorithm(QuantumAlgorithm):
         zero_str = "0" * n
 
         for _ in range(max_attempts):
-            result = self.run(shots=1, experiment_name="Default Experiment", device_name=device_name)
+            result = self.run(
+                shots=1, experiment_name="Default Experiment", device_name=device_name
+            )
             counts = result.get()["counts"]
             measured = list(counts.keys())[0]
 

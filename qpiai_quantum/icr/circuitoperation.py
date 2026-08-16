@@ -12,7 +12,7 @@ class OperationType(Enum):
 
 
 class CircuitOperation:
-    _registry = {}
+    _registry: dict[str, type["CircuitOperation"]] = {}
     order: list["CircuitOperation"] | None
 
     def __init_subclass__(cls):
@@ -54,7 +54,7 @@ class CircuitOperation:
         self.clbits = clbits
 
     def to_json(self) -> dict[str, Any]:
-        result = {
+        result: dict[str, Any] = {
             "operation_type": self.operation_type.value,
             "gate_name": self.gate_name,
             "qubits": self.qubits,
@@ -157,9 +157,7 @@ class UGate(CircuitOperation):
 
 class U2Gate(CircuitOperation):
     def __init__(self, qubit: int, phi: float, lam: float):
-        super().__init__(
-            OperationType.N_QUBIT_PARAMETRIC, "U2", [qubit], [phi, lam]
-        )
+        super().__init__(OperationType.N_QUBIT_PARAMETRIC, "U2", [qubit], [phi, lam])
 
 
 # Two-qubit non-parametric gates
@@ -209,9 +207,7 @@ class CSDGGate(CircuitOperation):
 
 class DCXGate(CircuitOperation):
     def __init__(self, qubit1: int, qubit2: int):
-        super().__init__(
-            OperationType.N_QUBIT_NON_PARAMETRIC, "DCX", [qubit1, qubit2]
-        )
+        super().__init__(OperationType.N_QUBIT_NON_PARAMETRIC, "DCX", [qubit1, qubit2])
 
 
 class ECRGate(CircuitOperation):
@@ -380,8 +376,13 @@ class MeasureOperation(CircuitOperation):
 
 
 class BarrierOperation(CircuitOperation):
-    def __init__(self, *qubits: list[int]):
-        super().__init__(OperationType.BARRIER, "Barrier", qubits)
+    def __init__(self, *qubits: int | list[int]):
+        qubit_list: list[int] = (
+            qubits[0]
+            if len(qubits) == 1 and isinstance(qubits[0], list)
+            else [q for q in qubits if isinstance(q, int)]
+        )
+        super().__init__(OperationType.BARRIER, "Barrier", qubit_list)
 
 
 # Generic operation container

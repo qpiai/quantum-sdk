@@ -179,7 +179,9 @@ class BernsteinVazirani(QuantumAlgorithm):
         if self.circuit is None:
             self.build_circuit()
 
-        result = self.run(shots=shots, experiment_name="Default Experiment", device_name=device_name)
+        result = self.run(
+            shots=shots, experiment_name="Default Experiment", device_name=device_name
+        )
         counts = result.get()["counts"]
 
         # Return the most frequently measured bitstring

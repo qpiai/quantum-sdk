@@ -387,4 +387,3 @@ To add a new algorithm:
 ## License
 
 Part of the QpiAI Quantum SDK
-
