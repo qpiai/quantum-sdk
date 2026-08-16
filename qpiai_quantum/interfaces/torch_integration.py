@@ -3,8 +3,10 @@ import torch.nn as nn
 import numpy as np
 from qpiai_quantum.circuit import Circuit
 from qpiai_quantum.icr.circuitoperation import CircuitOperation, OperationType
-from typing import Callable, Any, Tuple
+from typing import Any
+from collections.abc import Callable
 import concurrent.futures
+
 
 class ParameterShiftFunction(torch.autograd.Function):
     """
@@ -13,14 +15,16 @@ class ParameterShiftFunction(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx: Any, cost_function: Callable[[np.ndarray], float], parameters: torch.Tensor) -> torch.Tensor:
+    def forward(
+        ctx: Any, cost_function: Callable[[np.ndarray], float], parameters: torch.Tensor
+    ) -> torch.Tensor:
         """
         Evaluate the quantum cost function for the given parameters.
 
         Args:
             ctx (Any): PyTorch context for saving information for the backward pass.
-            cost_function (Callable[[np.ndarray], float]): A classical function that takes a NumPy 
-                array of parameters and returns the expectation value as a float. This abstracts 
+            cost_function (Callable[[np.ndarray], float]): A classical function that takes a NumPy
+                array of parameters and returns the expectation value as a float. This abstracts
                 away the circuit building and execution (since `Circuit.execute` does not exist).
             parameters (torch.Tensor): The PyTorch tensor of parameters.
 
@@ -49,11 +53,11 @@ class ParameterShiftFunction(torch.autograd.Function):
             grad_outputs (Any): The upstream gradients.
 
         Returns:
-            Tuple[None, torch.Tensor]: Tuple containing None for the non-tensor 
+            tuple[None, torch.Tensor]: Tuple containing None for the non-tensor
             argument (cost_function) and the computed gradients for the parameters.
         """
         grad_output = grad_outputs[0]
-        parameters, = ctx.saved_tensors
+        (parameters,) = ctx.saved_tensors
         cost_function = ctx.cost_function
 
         params_np = parameters.detach().numpy()
@@ -61,8 +65,8 @@ class ParameterShiftFunction(torch.autograd.Function):
 
         shift = torch.pi / 2.0
 
-        # Note: The SDK currently simulates individual circuits sequentially. 
-        # To improve this, one could use Python's `concurrent.futures` to evaluate 
+        # Note: The SDK currently simulates individual circuits sequentially.
+        # To improve this, one could use Python's `concurrent.futures` to evaluate
         # the forward and backward shifted circuits in parallel across multiple CPU cores.
         def evaluate_shift(index, shift_type):
             params_shifted = params_np.copy()
@@ -71,12 +75,13 @@ class ParameterShiftFunction(torch.autograd.Function):
             else:
                 params_shifted[index] -= shift
             return index, shift_type, cost_function(params_shifted)
+
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = []
             for i in range(len(params_np)):
                 futures.append(executor.submit(evaluate_shift, i, "forward"))
                 futures.append(executor.submit(evaluate_shift, i, "backward"))
-                
+
             results = {"forward": {}, "backward": {}}
             for future in concurrent.futures.as_completed(futures):
                 idx, s_type, exp_val = future.result()
@@ -87,15 +92,25 @@ class ParameterShiftFunction(torch.autograd.Function):
         # returning None for non-tensor arguments (cost_function)
         return None, gradients * grad_output
 
+
 class QuantumLayer(nn.Module):
     """
     A PyTorch neural network module that wraps a parameterized QpiAI Quantum Circuit.
-    
+
     This abstracts away the parameter binding and expectation computation, allowing
     users to easily drop a quantum circuit into standard PyTorch models by passing
     the circuit and observables directly.
     """
-    def __init__(self, circuit: Circuit, observables: list, num_params: int, device_name: str = "QpiAI-QSV-Local", shots: int = 1024, **run_kwargs):
+
+    def __init__(
+        self,
+        circuit: Circuit,
+        observables: list,
+        num_params: int,
+        device_name: str = "QpiAI-QSV-Local",
+        shots: int = 1024,
+        **run_kwargs,
+    ):
         """
         Args:
             circuit (Circuit): The parameterized quantum circuit template.
@@ -115,7 +130,7 @@ class QuantumLayer(nn.Module):
         """Bind numpy parameters to the circuit by replacing parametric gates."""
         bound_circuit = Circuit(self.circuit.num_qubits)
         param_idx = 0
-        
+
         for op in self.circuit.icr.evolve:
             if op.operation_type == OperationType.N_QUBIT_PARAMETRIC:
                 if param_idx < len(params_np):
@@ -138,27 +153,34 @@ class QuantumLayer(nn.Module):
         """
         Forward pass for the quantum layer.
         """
+
         def cost_fn(params_np: np.ndarray) -> float:
             bound_circuit = self._bind_parameters(params_np)
-            
-            # If local simulator, we can optionally use exact statevectors. 
+
+            # If local simulator, we can optionally use exact statevectors.
             # Otherwise (e.g. real hardware), we must use measurement counts.
-            need_sv = (self.device_name == "QpiAI-QSV-Local")
-            
+            need_sv = self.device_name == "QpiAI-QSV-Local"
+
             # Note: For real hardware, `bound_circuit` must have measurement gates.
             if not need_sv:
                 bound_circuit.measure_all()
 
-            result = bound_circuit.run(shots=self.shots, need_statevector=need_sv, device_name=self.device_name)
+            result = bound_circuit.run(
+                shots=self.shots, need_statevector=need_sv, device_name=self.device_name
+            )
             expectation = 0.0
-            
-            if need_sv and hasattr(result, 'statevector') and result.statevector is not None:
+
+            if (
+                need_sv
+                and hasattr(result, "statevector")
+                and result.statevector is not None
+            ):
                 # EXACT EXPECTATION FROM STATEVECTOR
                 state = np.array(result.statevector, dtype=complex)
                 n_qubits = bound_circuit.num_qubits
-                
+
                 for qubit_idx, op_name in self.observables:
-                    if op_name == 'Z':
+                    if op_name == "Z":
                         evolved_state = state.copy()
                         shape = (2 ** (n_qubits - 1 - qubit_idx), 2, 2**qubit_idx)
                         state_tensor = evolved_state.reshape(shape)
@@ -172,20 +194,22 @@ class QuantumLayer(nn.Module):
                 if total_shots > 0:
                     for qubit_idx, op_name in self.observables:
                         term_exp = 0.0
-                        assert counts is not None, "Counts should not be None if total_shots > 0"
+                        assert counts is not None, (
+                            "Counts should not be None if total_shots > 0"
+                        )
                         for bitstr, count in counts.items():
                             eigenvalue = 1.0
-                            # Left-pad bitstr if needed 
+                            # Left-pad bitstr if needed
                             if len(bitstr) < bound_circuit.num_qubits:
                                 bitstr = bitstr.zfill(bound_circuit.num_qubits)
-                            
-                            if op_name == 'Z':
+
+                            if op_name == "Z":
                                 bit = int(bitstr[-(qubit_idx + 1)])
                                 eigenvalue *= 1.0 if bit == 0 else -1.0
-                                
+
                             term_exp += eigenvalue * count
                         expectation += term_exp / total_shots
-                        
+
             return float(expectation)
 
         return ParameterShiftFunction.apply(cost_fn, self.q_params)
