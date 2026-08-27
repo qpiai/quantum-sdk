@@ -78,15 +78,71 @@ class AmplitudeEstimation(QuantumAlgorithm):
     Canonical Quantum Amplitude Estimation (QAE) using Quantum Phase Estimation (QPE).
 
     QAE uses an evaluation register of m qubits initialized in superposition,
-    applies controlled powers of the Grover operator C-Q^(2^j), and then
-    applies Inverse QFT on the evaluation register to estimate the amplitude
-    a = sin^2(theta_a).
+    applies controlled powers of the Grover operator C-Q^(2^(m-1-j)) on
+    evaluation qubit j, and then applies Inverse QFT on the evaluation register
+    to estimate the amplitude a = sin^2(theta_a).
+
+    Custom ``is_good_state`` predicates are supported: the predicate is
+    enumerated over the state register and synthesised into an explicit oracle
+    when it differs from the default all-objective-qubits-are-1 marking.
     """
+
+    # Upper bound on the state register for which an explicit oracle can be
+    # synthesised from a custom is_good_state predicate (2^n enumeration).
+    MAX_ORACLE_QUBITS = 16
 
     def __init__(self, num_evaluation_qubits: int):
         self.num_evaluation_qubits = num_evaluation_qubits
         super().__init__(num_qubits=0, name="Amplitude Estimation")
         self.description = "Canonical Amplitude Estimation using QPE"
+
+    @staticmethod
+    def _apply_multi_controlled_z(circuit: Circuit, controls: list[int], target: int):
+        """Apply a phase flip on the all-ones state of controls + target."""
+        if not controls:
+            circuit.z(target)
+        elif len(controls) == 1:
+            circuit.cz(controls[0], target)
+        elif len(controls) == 2:
+            circuit.h(target)
+            circuit.ccx(controls[0], controls[1], target)
+            circuit.h(target)
+        else:
+            circuit.h(target)
+            circuit.mcx(controls, target)
+            circuit.h(target)
+
+    def _resolve_good_states(self, problem: EstimationProblem) -> list[int] | None:
+        """
+        Resolve ``problem.is_good_state`` into the basis states it marks.
+
+        Returns None when the predicate marks exactly the states covered by the
+        default "every objective qubit is 1" rule, so the compact
+        objective-qubit encoding can be used.  Otherwise returns the integer
+        encoding of every marked basis state, where bit q is qubit q.
+        """
+        n = problem.num_qubits
+        if n > self.MAX_ORACLE_QUBITS:
+            raise ValueError(
+                f"Canonical amplitude estimation can synthesise an oracle for at "
+                f"most {self.MAX_ORACLE_QUBITS} state qubits, got {n}. Use "
+                f"IterativeAmplitudeEstimation for larger problems."
+            )
+
+        objective_mask = 0
+        for q in problem.objective_qubits:
+            objective_mask |= 1 << q
+
+        good: list[int] = []
+        default: list[int] = []
+        for value in range(2**n):
+            # Same layout as measurement counts: MSB first, qubit q at index n-1-q.
+            if problem.is_good_state(format(value, f"0{n}b")):
+                good.append(value)
+            if value & objective_mask == objective_mask:
+                default.append(value)
+
+        return None if good == default else good
 
     def _apply_controlled_s_chi(
         self,
@@ -94,23 +150,35 @@ class AmplitudeEstimation(QuantumAlgorithm):
         control_qubit: int,
         state_offset: int,
         problem: EstimationProblem,
+        good_states: list[int] | None = None,
     ):
-        """Apply controlled phase-flip S_chi on good states."""
-        obj_qubits = [state_offset + q for q in problem.objective_qubits]
-        n_obj = len(obj_qubits)
+        """
+        Apply controlled phase-flip S_chi on good states.
 
-        if n_obj == 1:
-            circuit.cz(control_qubit, obj_qubits[0])
-        elif n_obj == 2:
-            circuit.h(obj_qubits[1])
-            circuit.ccx(control_qubit, obj_qubits[0], obj_qubits[1])
-            circuit.h(obj_qubits[1])
-        else:
-            controls = [control_qubit] + obj_qubits[:-1]
-            target = obj_qubits[-1]
-            circuit.h(target)
-            circuit.mcx(controls, target)
-            circuit.h(target)
+        With ``good_states`` None the default "all objective qubits are 1"
+        marking is emitted directly on the objective qubits.  Otherwise one
+        phase flip is emitted per marked basis state, so custom
+        ``is_good_state`` predicates are honoured rather than silently ignored.
+        """
+        if good_states is None:
+            obj_qubits = [state_offset + q for q in problem.objective_qubits]
+            self._apply_multi_controlled_z(
+                circuit, [control_qubit] + obj_qubits[:-1], obj_qubits[-1]
+            )
+            return
+
+        n_state = problem.num_qubits
+        state_qubits = [state_offset + q for q in range(n_state)]
+        controls = [control_qubit] + state_qubits[:-1]
+        target = state_qubits[-1]
+
+        for value in good_states:
+            zeros = [state_qubits[q] for q in range(n_state) if not (value >> q) & 1]
+            for q in zeros:
+                circuit.x(q)
+            self._apply_multi_controlled_z(circuit, controls, target)
+            for q in zeros:
+                circuit.x(q)
 
     def _apply_controlled_s_0(
         self,
@@ -125,18 +193,9 @@ class AmplitudeEstimation(QuantumAlgorithm):
         for q in state_qubits:
             circuit.x(q)
 
-        if n_state_qubits == 1:
-            circuit.cz(control_qubit, state_qubits[0])
-        elif n_state_qubits == 2:
-            circuit.h(state_qubits[1])
-            circuit.ccx(control_qubit, state_qubits[0], state_qubits[1])
-            circuit.h(state_qubits[1])
-        else:
-            controls = [control_qubit] + state_qubits[:-1]
-            target = state_qubits[-1]
-            circuit.h(target)
-            circuit.mcx(controls, target)
-            circuit.h(target)
+        self._apply_multi_controlled_z(
+            circuit, [control_qubit] + state_qubits[:-1], state_qubits[-1]
+        )
 
         for q in state_qubits:
             circuit.x(q)
@@ -148,6 +207,7 @@ class AmplitudeEstimation(QuantumAlgorithm):
         state_offset: int,
         problem: EstimationProblem,
         power: int,
+        good_states: list[int] | None = None,
     ):
         r"""
         Apply controlled Grover operator Q^power controlled by control_qubit.
@@ -161,7 +221,9 @@ class AmplitudeEstimation(QuantumAlgorithm):
 
         for _ in range(power):
             circuit.z(control_qubit)
-            self._apply_controlled_s_chi(circuit, control_qubit, state_offset, problem)
+            self._apply_controlled_s_chi(
+                circuit, control_qubit, state_offset, problem, good_states
+            )
             circuit.compose(A_inv, state_qubits)
             self._apply_controlled_s_0(circuit, control_qubit, state_offset, n_state)
             circuit.compose(A, state_qubits)
@@ -182,10 +244,15 @@ class AmplitudeEstimation(QuantumAlgorithm):
         state_qubits = [m + q for q in range(n)]
         self.circuit.compose(problem.state_preparation, state_qubits)
 
-        # 3. Apply controlled Grover powers C-Q^(2^j)
+        # 3. Apply controlled Grover powers C-Q^(2^(m-1-j)).
+        #    Evaluation qubit j must accumulate the phase weight the inverse QFT
+        #    expects at that position, matching QuantumPhaseEstimation.
+        good_states = self._resolve_good_states(problem)
         for j in range(m):
-            power = 2**j
-            self._apply_controlled_grover(self.circuit, j, m, problem, power)
+            power = 2 ** (m - 1 - j)
+            self._apply_controlled_grover(
+                self.circuit, j, m, problem, power, good_states
+            )
 
         # 4. Apply Inverse QFT on evaluation register
         QFT.apply_inverse_qft_to_circuit(self.circuit, start=0, n=m)
