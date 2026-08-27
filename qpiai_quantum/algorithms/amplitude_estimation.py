@@ -83,12 +83,12 @@ class AmplitudeEstimation(QuantumAlgorithm):
     to estimate the amplitude a = sin^2(theta_a).
 
     Custom ``is_good_state`` predicates are supported: the predicate is
-    enumerated over the state register and synthesised into an explicit oracle
+    enumerated over the state register and synthesized into an explicit oracle
     when it differs from the default all-objective-qubits-are-1 marking.
     """
 
     # Upper bound on the state register for which an explicit oracle can be
-    # synthesised from a custom is_good_state predicate (2^n enumeration).
+    # synthesized from a custom is_good_state predicate (2^n enumeration).
     MAX_ORACLE_QUBITS = 16
 
     def __init__(self, num_evaluation_qubits: int):
@@ -124,7 +124,7 @@ class AmplitudeEstimation(QuantumAlgorithm):
         n = problem.num_qubits
         if n > self.MAX_ORACLE_QUBITS:
             raise ValueError(
-                f"Canonical amplitude estimation can synthesise an oracle for at "
+                f"Canonical amplitude estimation can synthesize an oracle for at "
                 f"most {self.MAX_ORACLE_QUBITS} state qubits, got {n}. Use "
                 f"IterativeAmplitudeEstimation for larger problems."
             )

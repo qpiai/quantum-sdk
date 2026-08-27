@@ -215,7 +215,7 @@ print(f"Estimated amplitude: {amplitude:.4f}")  # true value: sin^2(0.4) = 0.151
 
 A custom `is_good_state` predicate is honoured by both variants.  For
 `AmplitudeEstimation` the predicate is enumerated over the state register and
-synthesised into an explicit oracle, which is supported for up to
+synthesized into an explicit oracle, which is supported for up to
 `AmplitudeEstimation.MAX_ORACLE_QUBITS` state qubits:
 
 ```python
