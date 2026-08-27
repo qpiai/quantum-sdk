@@ -65,17 +65,6 @@ class TestBVExecutionWithMock(unittest.TestCase):
     "Skipping correctness test. Set RUN_ALGO_CORRECTNESS=1 and API_KEY in environment to run.",
 )
 class TestBVCorrectness(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        api_key = os.getenv("API_KEY")
-        if api_key:
-            from qpiai_quantum.authentication.auth import QpiAIQuantumAuth
-
-            try:
-                QpiAIQuantumAuth.login(api_key)
-            except Exception:
-                pass
-
     def test_live_find_hidden_string_101(self):
         import uuid
 

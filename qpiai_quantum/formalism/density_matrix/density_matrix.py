@@ -512,15 +512,25 @@ class DensityMatrix(BaseDensityMatrix):
         meas = [P[:, :, j].value for j in range(num_ops)] if len(varargin) > 1 else None
         return dist, meas if len(varargin) > 1 else dist
 
-    def relative_entropy_coherence(self):
-        """ """
+    def relative_entropy_coherence(self) -> float:
+        """
+        Computes the relative entropy of coherence of the density matrix.
 
-        # Assuming 'rho' is the density matrix
-        rho = np.matrix(self.dm)
+        The relative entropy of coherence is defined as:
+            C_rel(ρ) = S(ρ_diag) - S(ρ)
+        where S(ρ) is the von Neumann entropy of ρ in bits, and ρ_diag is the
+        incoherent state obtained by zeroing out off-diagonal elements of ρ in
+        the computational basis.
 
-        # Calculate the entropy as per the given formula
-        rho_diag = DensityMatrix(np.diag(rho))  # Extract diagonal matrix of rho
-        return rho_diag.reyni() - rho_diag.reyni()
+        Returns:
+            float: The relative entropy of coherence (in bits).
+        """
+        diag_entries = np.real(np.diag(self.state))
+        diag_matrix = np.diag(diag_entries)
+        rho_diag = DensityMatrix(diag_matrix)
+
+        rel_entropy = rho_diag.reyni() - self.reyni()
+        return float(np.maximum(0.0, rel_entropy))
 
     def max_bell_value(self):
         """ """

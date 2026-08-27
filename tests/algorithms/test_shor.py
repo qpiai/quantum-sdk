@@ -83,17 +83,6 @@ class TestShorExecutionWithMock(unittest.TestCase):
     "Skipping correctness test. Set RUN_ALGO_CORRECTNESS=1 and API_KEY in environment to run.",
 )
 class TestShorCorrectness(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        api_key = os.getenv("API_KEY")
-        if api_key:
-            from qpiai_quantum.authentication.auth import QpiAIQuantumAuth
-
-            try:
-                QpiAIQuantumAuth.login(api_key)
-            except Exception:
-                pass
-
     def test_live_factor_15(self):
         # Simplest Shor factoring instance: N=15
         shor = ShorsAlgorithm(N=15)
@@ -103,7 +92,9 @@ class TestShorCorrectness(unittest.TestCase):
         else:
             # Due to probabilistic nature or simplified modular multiply, factor might return None,
             # but find_period should work for base 2
-            period = shor.find_period(a=2, precision_qubits=4)
+            period = shor.find_period(
+                a=2, precision_qubits=4, device_name="QpiAI-QSV-Local"
+            )
             self.assertIn(
                 period, [1, 2, 4]
             )  # period of 2 mod 15 is 4, but due to shots/interference can be divisor

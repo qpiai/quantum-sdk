@@ -50,15 +50,30 @@ class SSEResultHandler:
         data = results_data.get("data", {})
         statevector_raw = data.get("statevector")
         converted_statevector = None
-        if statevector_raw:
-            # Convert statevector from [{"real": x, "imag": y}, ...] to complex numbers
-            converted_statevector = []
-            for state in statevector_raw:
-                if isinstance(state, dict) and "real" in state and "imag" in state:
-                    complex_val = complex(state["real"], state["imag"])
-                    converted_statevector.append([complex_val])
-                else:
-                    converted_statevector.append(state)
+        if statevector_raw and len(statevector_raw) > 0:
+            if (
+                isinstance(statevector_raw[0], dict)
+                and "real" in statevector_raw[0]
+                and "imag" in statevector_raw[0]
+            ):
+                import operator
+                import numpy as np
+
+                get_real = operator.itemgetter("real")
+                get_imag = operator.itemgetter("imag")
+                reals = np.fromiter(
+                    map(get_real, statevector_raw),
+                    dtype=np.float64,
+                    count=len(statevector_raw),
+                )
+                imags = np.fromiter(
+                    map(get_imag, statevector_raw),
+                    dtype=np.float64,
+                    count=len(statevector_raw),
+                )
+                converted_statevector = (reals + 1j * imags).reshape(-1, 1).tolist()
+            else:
+                converted_statevector = statevector_raw
 
         return {
             "counts": data.get("counts"),

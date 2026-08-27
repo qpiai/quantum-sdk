@@ -150,7 +150,11 @@ class BernsteinVazirani(QuantumAlgorithm):
             if bit == "1":
                 self.circuit.cx(i, ancilla)
 
-    def find_hidden_string(self, shots: int = 1024) -> str:
+    def find_hidden_string(
+        self,
+        shots: int = 1024,
+        device_name: str = "QpiAI-QSV-Local",
+    ) -> str:
         """
         Run the algorithm and extract the hidden bitstring from results.
 
@@ -164,6 +168,7 @@ class BernsteinVazirani(QuantumAlgorithm):
         Args:
             shots (int): Number of measurement shots. More shots improve
                 confidence on noisy backends. Default: 1024.
+            device_name (str): Device to run on. Default: QpiAI-QSV-Local.
 
         Returns:
             str: The recovered hidden bitstring.
@@ -174,7 +179,9 @@ class BernsteinVazirani(QuantumAlgorithm):
         if self.circuit is None:
             self.build_circuit()
 
-        result = self.run(shots=shots, experiment_name="Default Experiment")
+        result = self.run(
+            shots=shots, experiment_name="Default Experiment", device_name=device_name
+        )
         counts = result.get()["counts"]
 
         # Return the most frequently measured bitstring

@@ -1,6 +1,6 @@
 [project]
 name = "qpiai-quantum"
-version = "0.2.0"
+version = "0.3.0"
 description = "A comprehensive Python-based quantum computing framework providing modular implementations of quantum algorithms and optimization solvers"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -38,12 +38,14 @@ dependencies = [
     "cvxpy",
     "matplotlib",
     "networkx",
+    "numba",
     "numpy",
     "plotly",
     "requests",
     "scipy",
     "requests-sse",
     "python-dotenv",
+    "psutil",
 ]
 
 [project.urls]
@@ -61,6 +63,7 @@ dev = [
     "pytest-cov",
     "mypy",
     "ruff",
+    "pre-commit",
     "codespell",
     "pip-audit",
     "twine",

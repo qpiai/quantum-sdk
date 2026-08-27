@@ -37,6 +37,13 @@ class JobManager:
     from quantum circuit execution jobs on QPIAI backends.
     """
 
+    _resource_cache: dict[tuple[str, str], str] = {}
+
+    @classmethod
+    def clear_resource_cache(cls):
+        """Clear the compute resource ID cache."""
+        cls._resource_cache.clear()
+
     @staticmethod
     def track_job(func, job_name: str):
         """
@@ -85,6 +92,13 @@ class JobManager:
         Returns:
             Optional[str]: Compute resource ID (UUID string), or None if not found
         """
+        cache_key = (method, device_name)
+        if cache_key in JobManager._resource_cache:
+            logger.debug(
+                f"Using cached compute resource ID for {cache_key}: {JobManager._resource_cache[cache_key]}"
+            )
+            return JobManager._resource_cache[cache_key]
+
         try:
             import requests
         except ImportError:
@@ -100,8 +114,8 @@ class JobManager:
             ("density_matrix", "QpiAI-QDM-Lite"): "QpiAI-QDM-Lite",
         }
         # Try with normalized values
-        resource_name = resource_name_map.get((method, device_name))
-
+        resource_name = resource_name_map.get(cache_key)
+        # print(f"DevMapped to resource name: {resource_name}")
         if not resource_name:
             logger.warning(
                 f"No compute resource mapping for method={method}), "
@@ -117,26 +131,20 @@ class JobManager:
 
             if response.status_code == 200:
                 resources = response.json()
-                # API returns list of resources with structure:
-                # [{'ID': 'uuid', device_name: 'QpiAI-QSV-Simulator', ...}, ...]
+                if isinstance(resources, dict) and "compute_resources" in resources:
+                    resources = resources["compute_resources"]
+
                 if isinstance(resources, list):
                     for resource in resources:
-                        backend_name = resource.get("backend_name")
-                        if backend_name == resource_name:
-                            resource_id = resource.get("ID")
-                            logger.debug(
-                                f"Found compute resource: {backend_name} -> {resource_id}"
-                            )
-                            return resource_id
-                elif isinstance(resources, dict) and "compute_resources" in resources:
-                    for resource in resources["compute_resources"]:
-                        backend_name = resource.get("backend_name")
-                        if backend_name == resource_name:
-                            resource_id = resource.get("ID")
-                            logger.debug(
-                                f"Found compute resource: {backend_name} -> {resource_id}"
-                            )
-                            return resource_id
+                        b_name = resource.get("backend_name")
+                        r_id = resource.get("ID")
+                        if b_name and r_id:
+                            for key_pair, val_name in resource_name_map.items():
+                                if val_name == b_name:
+                                    JobManager._resource_cache[key_pair] = r_id
+
+                if cache_key in JobManager._resource_cache:
+                    return JobManager._resource_cache[cache_key]
 
             logger.warning(f"Could not find compute resource ID for {resource_name}")
             return None
@@ -1051,11 +1059,21 @@ class JobManager:
                 and "real" in statevector[0]
                 and "imag" in statevector[0]
             ):
-                # Convert from {"real": x, "imag": y} format to complex numbers
-                converted_statevector = []
-                for state in statevector:
-                    complex_val = complex(state["real"], state["imag"])
-                    converted_statevector.append([np.complex128(complex_val)])
+                import operator
+
+                get_real = operator.itemgetter("real")
+                get_imag = operator.itemgetter("imag")
+                reals = np.fromiter(
+                    map(get_real, statevector),
+                    dtype=np.float64,
+                    count=len(statevector),
+                )
+                imags = np.fromiter(
+                    map(get_imag, statevector),
+                    dtype=np.float64,
+                    count=len(statevector),
+                )
+                converted_statevector = (reals + 1j * imags).reshape(-1, 1).tolist()
                 statevector = converted_statevector
 
             # Create JobResult object with rich job metadata
@@ -1064,6 +1082,7 @@ class JobManager:
                 counts=counts,
                 statevector=statevector,
                 probabilities=results_data.get("probabilities"),
+                density_matrix=results_data.get("density_matrix"),
                 message="Job completed successfully",
                 execution_time=job_data.get("execution_time_ms", 0) / 1000.0
                 if job_data.get("execution_time_ms")
@@ -1135,7 +1154,9 @@ class JobManager:
 
         return None
 
-    def _download_s3_result_via_backend(self, s3_path: str) -> dict[str, Any]:
+    def _download_s3_result_via_backend(
+        self, s3_path: str, result_type: str | None = None
+    ) -> dict[str, Any]:
         try:
             import requests
         except ImportError:
@@ -1178,6 +1199,33 @@ class JobManager:
                 f"Failed to download S3 result file for '{s3_path}': {e}"
             )
 
+        content_type = file_response.headers.get("Content-Type", "").lower()
+        if (
+            "application/octet-stream" in content_type
+            or "application/x-qpiai-binary" in content_type
+            or s3_path.endswith(".bin")
+        ):
+            import numpy as np
+
+            raw_bytes = file_response.content
+            complex_arr = np.frombuffer(raw_bytes, dtype=np.complex128)
+
+            if result_type == "density_matrix" or "density_matrix" in s3_path:
+                dim = int(np.sqrt(len(complex_arr)))
+                dm_matrix = complex_arr.reshape(dim, dim).tolist()
+                return {
+                    "results": {"data": {"density_matrix": dm_matrix}},
+                    "density_matrix": dm_matrix,
+                    "message": "Job completed successfully",
+                }
+
+            statevector = complex_arr.reshape(-1, 1).tolist()
+            return {
+                "results": {"data": {"statevector": statevector}},
+                "statevector": statevector,
+                "message": "Job completed successfully",
+            }
+
         try:
             return file_response.json()
         except ValueError:
@@ -1202,6 +1250,36 @@ class JobManager:
         s3_path = self._extract_s3_path_from_response(parsed_data)
         if s3_path:
             return self._download_s3_result_via_backend(s3_path)
+
+        # Handle binary S3 pointer from qcloud-workers (large_file + bucket + key)
+        if (
+            isinstance(parsed_data, dict)
+            and parsed_data.get("large_file")
+            and parsed_data.get("bucket")
+            and parsed_data.get("key")
+        ):
+            constructed_s3_path = f"s3://{parsed_data['bucket']}/{parsed_data['key']}"
+            result_type = parsed_data.get("result_type")
+            downloaded = self._download_s3_result_via_backend(
+                constructed_s3_path, result_type=result_type
+            )
+            # Merge metadata from the pointer (counts, execution_time) into downloaded result
+            if isinstance(downloaded, dict):
+                pointer_counts = parsed_data.get("counts")
+                if pointer_counts and not downloaded.get("counts"):
+                    downloaded["counts"] = pointer_counts
+                    if "results" in downloaded and isinstance(
+                        downloaded["results"], dict
+                    ):
+                        downloaded["results"].setdefault("data", {})["counts"] = (
+                            pointer_counts
+                        )
+                pointer_exec_time = parsed_data.get("execution_time")
+                if pointer_exec_time:
+                    downloaded.setdefault(
+                        "execution_time", f"{pointer_exec_time:.4f} seconds"
+                    )
+            return downloaded
 
         return parsed_data
 

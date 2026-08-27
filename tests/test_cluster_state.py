@@ -12,6 +12,7 @@ from qpiai_quantum.state_preparation.cluster_state import (
 )
 from qpiai_quantum.circuit import Circuit
 from qpiai_quantum.authentication.auth import QpiAIQuantumAuth
+from qpiai_quantum.authentication.user import get_user
 
 
 class TestClusterState(unittest.TestCase):
@@ -19,6 +20,7 @@ class TestClusterState(unittest.TestCase):
     def setUpClass(cls):
         """Set up environment and load API key if available."""
         load_dotenv("qcloud.env")
+        load_dotenv()
         cls.api_key = os.getenv("API_KEY")
         if cls.api_key:
             try:
@@ -84,6 +86,27 @@ class TestClusterState(unittest.TestCase):
         gen = create_cluster_state(5)
         self.assertIsInstance(gen, ClusterStateGenerator)
         self.assertEqual(gen.num_qubits, 5)
+
+    @unittest.skipUnless(
+        os.getenv("API_KEY"),
+        "API key not found in environment",
+    )
+    def test_local_execution(self):
+        """Test local execution of cluster state preparation."""
+        user = get_user()
+        if user is None or not user.name or not user.email:
+            self.skipTest("Authentication required for local execution")
+        num_qubits = 3
+        cluster_gen = create_cluster_state(num_qubits=num_qubits)
+        cluster_gen.build_circuit(measure=True)
+
+        shots = 1024
+        result = cluster_gen.run(shots=shots, device_name="QpiAI-QSV-Local")
+        counts = result.get()["counts"]
+
+        self.assertGreaterEqual(len(counts), 1)
+        is_valid = cluster_gen.verify_entanglement(result)
+        self.assertTrue(is_valid, "Cluster state entanglement verification failed")
 
     @unittest.skipUnless(
         os.getenv("API_KEY"),

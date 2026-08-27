@@ -21,7 +21,6 @@ class QFT(QuantumAlgorithm):
     """
 
     def __init__(self, num_qubits: int, inverse: bool = False):
-
         super().__init__(
             num_qubits=num_qubits, name="QFT" if not inverse else "Inverse QFT"
         )

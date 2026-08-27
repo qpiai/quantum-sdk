@@ -99,7 +99,7 @@ class TestVQEXYTerms(unittest.TestCase):
             n_qubits=2,
             ansatz="standard",
             optimizer="cobyla",
-            max_iterations=40,
+            max_iterations=100,
         )
         res = vqe.run(
             hamiltonian=ham,

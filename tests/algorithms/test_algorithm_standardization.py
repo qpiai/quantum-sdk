@@ -81,7 +81,7 @@ class TestAlgorithmStandardization(unittest.TestCase):
         self.assertIsNotNone(qpe.circuit)
         self.assertEqual(phase, 0.25)
         # Ensure that build parameters like 'unitary' were NOT passed to run() as kwargs
-        mock_run.assert_called_once_with(shots=1)
+        mock_run.assert_called_once_with(shots=1, device_name="QpiAI-QSV-Local")
 
     def test_vqe_standardization(self):
         vqe = VQESolver(n_qubits=3, ansatz="standard")

@@ -73,17 +73,6 @@ class TestSimonExecutionWithMock(unittest.TestCase):
     "Skipping correctness test. Set RUN_ALGO_CORRECTNESS=1 and API_KEY in environment to run.",
 )
 class TestSimonCorrectness(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        api_key = os.getenv("API_KEY")
-        if api_key:
-            from qpiai_quantum.authentication.auth import QpiAIQuantumAuth
-
-            try:
-                QpiAIQuantumAuth.login(api_key)
-            except Exception:
-                pass
-
     def test_live_find_hidden_string_2_qubits(self):
         # Simplest Simon instance: 2 qubits, hidden string "11"
         simon = SimonAlgorithm(num_qubits=2, hidden_string="11")

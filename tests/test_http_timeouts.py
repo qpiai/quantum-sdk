@@ -21,6 +21,7 @@ def test_all_requests_calls_specify_a_timeout():
             if (
                 not isinstance(call.func.value, ast.Name)
                 or call.func.value.id != "requests"
+                or call.func.attr == "Session"
             ):
                 continue
             assert any(keyword.arg == "timeout" for keyword in call.keywords), (

@@ -261,7 +261,12 @@ class ShorsAlgorithm(QuantumAlgorithm):
 
         return order if current == 1 else 1
 
-    def find_period(self, a: int, precision_qubits: int | None = None) -> int:
+    def find_period(
+        self,
+        a: int,
+        precision_qubits: int | None = None,
+        device_name: str = "QpiAI-QSV-Local",
+    ) -> int:
         """
         Find the period r such that a^r ≡ 1 (mod N).
 
@@ -270,6 +275,7 @@ class ShorsAlgorithm(QuantumAlgorithm):
         Args:
             a (int): Random number coprime to N
             precision_qubits (int, optional): Precision (defaults to 2 * ceil(log2(N)))
+            device_name (str): Device to run on. Default: QpiAI-QSV-Local.
 
         Returns:
             int: The period r
@@ -279,7 +285,9 @@ class ShorsAlgorithm(QuantumAlgorithm):
 
         # Build and run circuit
         self.build_circuit(a, precision_qubits)
-        result = self.run(shots=1, experiment_name="Default Experiment")
+        result = self.run(
+            shots=1, experiment_name="Default Experiment", device_name=device_name
+        )
 
         # Extract measurement result
         counts = result.get()["counts"]
@@ -294,12 +302,17 @@ class ShorsAlgorithm(QuantumAlgorithm):
 
         return frac.denominator
 
-    def factor(self, max_attempts: int = 10) -> tuple[int, int] | None:
+    def factor(
+        self,
+        max_attempts: int = 10,
+        device_name: str = "QpiAI-QSV-Local",
+    ) -> tuple[int, int] | None:
         """
         Factor N using Shor's algorithm.
 
         Args:
             max_attempts (int): Maximum number of attempts
+            device_name (str): Device to run on. Default: QpiAI-QSV-Local.
 
         Returns:
             Optional[tuple[int, int]]: Factors (p, q) such that N = p * q, or None
@@ -315,7 +328,7 @@ class ShorsAlgorithm(QuantumAlgorithm):
 
             # Step 2: Find period using quantum circuit
             try:
-                r = self.find_period(a)
+                r = self.find_period(a, device_name=device_name)
 
                 # Step 3: Check if period is suitable
                 if r % 2 == 1:
