@@ -324,9 +324,9 @@ class DensityMatrixState(QuantumState):
 
     def von_neumann_entropy(self) -> float:
         """Return von Neumann entropy S(ρ) = -Tr(ρ log₂ ρ)."""
-        eigenvals = np.linalg.eigvalsh(self._data)
-        eigenvals = eigenvals[eigenvals > 1e-15]
-        return float(-np.sum(eigenvals * np.log2(eigenvals)))
+        eigenvalues = np.linalg.eigvalsh(self._data)
+        eigenvalues = eigenvalues[eigenvalues > 1e-15]
+        return float(-np.sum(eigenvalues * np.log2(eigenvalues)))
 
     def get_probabilities(self) -> np.ndarray:
         """Return measurement probabilities for all 2^n computational basis states."""

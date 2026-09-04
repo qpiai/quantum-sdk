@@ -416,7 +416,7 @@ def profile_optimized() -> dict[str, object]:
     profiler.disable()
 
     stream = io.StringIO()
-    stats = pstats.Stats(profiler, stream=stream).strip_dirs().sort_stats("cumtime")
+    stats = pstats.Stats(profiler, stream=stream).strip_dirs().sort_stats("cumulative")
     stats.print_stats(12)
     entries = []
     total = stats.total_tt
@@ -458,8 +458,8 @@ def fmt_ms(value: float) -> str:
 
 
 def write_csv(results: list[dict[str, object]], output: Path):
-    with output.open("w", newline="", encoding="utf-8") as csvfile:
-        writer = csv.writer(csvfile)
+    with output.open("w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.writer(csv_file)
         writer.writerow(
             [
                 "workload",
@@ -592,7 +592,7 @@ def draw_runtime_plot(pdf, results: list[dict[str, object]]):
     width = 0.38
     ax.bar(x - width / 2, original, width, label="Original")
     ax.bar(x + width / 2, optimized, width, label="Optimized pair-wise")
-    ax.set_yscale("log")
+    ax.set_yscale("log")  # cspell:disable-line
     ax.set_ylabel("Mean runtime (ms, log scale)")
     ax.set_title("Runtime comparison for representative workloads")
     ax.set_xticks(x)
