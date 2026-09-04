@@ -49,29 +49,23 @@ class DensityMatrix(BaseDensityMatrix):
 
     def _init_from_array(self, data: list | np.ndarray):
         """Initialize from array."""
-        # Handle nested list format
-        if isinstance(data, list) and len(data) > 0:
-            if isinstance(data[0], list):
-                # Could be density matrix or nested statevector
-                if isinstance(data[0], list):
-                    # Check for dict-based density matrix
-                    if (
-                        isinstance(data[0][0], dict)
-                        and "real" in data[0][0]
-                        and "imag" in data[0][0]
-                    ):
-                        self._init_from_dict_density_matrix(data)
-                        return
-
-                    # 2D numeric density matrix
-                    if isinstance(data[0][0], list):
-                        self.data = np.array(data, dtype=complex)
-                else:
-                    # Nested statevector [[c1], [c2], ...]
+        if isinstance(data, np.ndarray):
+            self.data = data.astype(complex)
+        elif isinstance(data, list) and len(data) > 0:
+            first = data[0]
+            if isinstance(first, list):
+                if len(first) > 0 and isinstance(first[0], dict) and "real" in first[0]:
+                    self._init_from_dict_density_matrix(data)
+                    return
+                elif len(first) == 1 and not isinstance(first[0], (list, dict)):
+                    # Nested column statevector [[c1], [c2], ...]
                     statevector = np.array([item[0] for item in data], dtype=complex)
                     self._init_from_statevector(statevector)
                     return
-            elif isinstance(data[0], dict) and "real" in data[0] and "imag" in data[0]:
+                else:
+                    # 2D numeric / complex density matrix
+                    self.data = np.array(data, dtype=complex)
+            elif isinstance(first, dict) and "real" in first and "imag" in first:
                 # Dict format statevector
                 statevector = np.array(
                     [complex(item["real"], item["imag"]) for item in data],
