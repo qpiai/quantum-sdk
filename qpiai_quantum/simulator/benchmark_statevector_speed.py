@@ -21,11 +21,15 @@ if "qpiai_quantum" not in sys.modules:
     qpiai_quantum.__path__ = [str(ROOT / "qpiai_quantum")]
     sys.modules["qpiai_quantum"] = qpiai_quantum
 
-from qpiai_quantum.circuit.circuit import Circuit
-from qpiai_quantum.icr.circuitoperation import OperationType
-from qpiai_quantum.simulator.gates import DECOMPOSED_GATES, decompose, gate_spec
-from qpiai_quantum.simulator.result import QasmSimulatorResult
-from qpiai_quantum.simulator.statevector import StatevectorSimulator
+from qpiai_quantum.circuit.circuit import Circuit  # noqa: E402
+from qpiai_quantum.icr.circuitoperation import OperationType  # noqa: E402
+from qpiai_quantum.simulator.gates import (  # noqa: E402
+    DECOMPOSED_GATES,
+    decompose,
+    gate_spec,
+)
+from qpiai_quantum.simulator.result import QasmSimulatorResult  # noqa: E402
+from qpiai_quantum.simulator.statevector import StatevectorSimulator  # noqa: E402
 
 
 OPTIMIZED_GATES = ("h", "x", "y", "z", "s", "rx", "ry", "rz")

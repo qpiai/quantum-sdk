@@ -107,10 +107,10 @@ class TestDensityMatrixState:
         dm.apply_x(0)  # |1><1|
 
         gamma = 0.3
-        K0 = np.array([[1, 0], [0, np.sqrt(1 - gamma)]], dtype=complex)
-        K1 = np.array([[0, np.sqrt(gamma)], [0, 0]], dtype=complex)
+        k0 = np.array([[1, 0], [0, np.sqrt(1 - gamma)]], dtype=complex)
+        k1 = np.array([[0, np.sqrt(gamma)], [0, 0]], dtype=complex)
 
-        dm.apply_kraus([K0, K1], [0])
+        dm.apply_kraus([k0, k1], [0])
         np.testing.assert_allclose(
             dm.data, [[gamma, 0], [0, 1 - gamma]], atol=1e-12
         )

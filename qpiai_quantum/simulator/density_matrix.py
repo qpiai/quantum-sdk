@@ -240,8 +240,8 @@ class DensityMatrixState(QuantumState):
         n = self._num_qubits
         dim = 1 << n
         new_rho = np.zeros((dim, dim), dtype=complex)
-        for K in kraus_ops:
-            new_rho += self._transform_density_matrix(self._data, n, qubits, K)
+        for k_op in kraus_ops:
+            new_rho += self._transform_density_matrix(self._data, n, qubits, k_op)
         self._data = new_rho
 
     @staticmethod
@@ -360,7 +360,7 @@ class DensityMatrixSimulator(BaseSimulator):
 
     def run(
         self,
-        circuit: "Circuit",
+        circuit: Circuit,
         shots: int = 1024,
         seed: int | None = None,
         name: str | None = None,
