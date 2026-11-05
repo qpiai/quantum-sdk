@@ -42,7 +42,7 @@ def test_shared_scaled_parameters_and_explicit_rotations() -> None:
     assert "parameter_index" not in original_operations[3].to_json()
 
 
-def test_local_method_mapping_preserves_public_device_policy() -> None:
+def test_local_method_mapping_preserves_public_device_policy(backend_devices) -> None:
     assert _map_device_name_to_method("QpiAI-QSV-Local") == "statevector"
     assert _map_device_name_to_method("QpiAI-Indus-1") == "qpu"
     assert _map_device_name_to_method("QpiAI-QSV-Lite") == "statevector_sampling"

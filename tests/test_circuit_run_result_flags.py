@@ -5,6 +5,8 @@ import pytest
 
 from qpiai_quantum.circuit import Circuit
 
+pytestmark = pytest.mark.usefixtures("backend_devices")
+
 
 @pytest.mark.parametrize(
     ("device_name", "expected_statevector", "expected_density_matrix"),
@@ -36,7 +38,7 @@ def test_run_uses_backend_aware_result_defaults(
 @pytest.mark.parametrize("device_name", ["QpiAI-QDM-Simulator", "QpiAI-QDM-Lite"])
 @patch("qpiai_quantum.jobmanager.ExecutionEngine.execute_circuit")
 def test_run_rejects_qdm_statevector_request(mock_execute, device_name: str):
-    with pytest.raises(ValueError, match="QDM simulators return density matrices only"):
+    with pytest.raises(ValueError, match="returns density matrices only"):
         Circuit(1).run(
             device_name=device_name,
             need_statevector=True,

@@ -1,22 +1,21 @@
 import json
 import logging
 import time
-from typing import Optional
-
-from .result_decoding import decode_statevector
+from typing import Any, Optional
+from .result_decoding import decode_execution_time_seconds, parse_circuit_response
 
 try:
     from requests_sse import (
-        EventSource,
+        EventSource as _EventSource,
         InvalidStatusCodeError,
         InvalidContentTypeError,
     )
 
+    EventSource: Any = _EventSource
     SSE_AVAILABLE = True
 except ImportError:
     SSE_AVAILABLE = False
     EventSource = None
-
 logger = logging.getLogger("qpiai_quantum.jobmanager")
 
 
@@ -28,7 +27,7 @@ class SSEResultHandler:
     tracks job status, and extracts results when jobs complete.
 
     Attributes:
-        device_name (Optional[str]): The device name ("QpiAI-QSV-Local", "QpiAI-QSV-Simulator", "QpiAI-QDM-Simulator",
+        device_name (Optional[str]): The device name ("QpiAI-QSV-Simulator", "QpiAI-QDM-Simulator",
                                 "QpiAI-QTN-Simulator",
                                 "QpiAI-Indus-1",
                                 "QpiAI-QSV-Lite",
@@ -39,7 +38,7 @@ class SSEResultHandler:
         timeout (int): Timeout in seconds for SSE connection
     """
 
-    def __init__(self, device_name: str | None = None, timeout: int = 300):
+    def __init__(self, device_name: str | None = None, timeout: int = 3600):
         self.device_name = device_name
         self.is_completed = False
         self.final_result: dict | None = None
@@ -48,37 +47,7 @@ class SSEResultHandler:
 
     def _parse_simulator_response(self, response_data: dict) -> dict:
         """Parse simulator response format: results.data.counts, results.data.statevector."""
-        results_data = response_data.get("results", {})
-        data = results_data.get("data", {})
-        converted_statevector = decode_statevector(data.get("statevector"))
-
-        return {
-            "counts": data.get("counts"),
-            "statevector": converted_statevector,
-            "probabilities": data.get("probabilities"),
-            "execution_time": response_data.get("execution_time"),
-        }
-
-    def _parse_qpu_response(self, response_data: dict) -> dict:
-        """Parse QPU response format with nested structure: results.results.counts."""
-        counts = None
-
-        if isinstance(response_data, dict):
-            # Newer responses can return counts directly at the top-level
-            # (for example: {"counts": {...}, ...}).
-            counts = response_data.get("counts")
-
-            # Backward-compatible handling for nested shapes.
-            if counts is None and "results" in response_data:
-                results = response_data["results"]
-                if isinstance(results, dict):
-                    counts = results.get("counts")
-                    if counts is None and "results" in results:
-                        inner_results = results["results"]
-                        if isinstance(inner_results, dict):
-                            counts = inner_results.get("counts")
-
-        return {"counts": counts, "execution_time": response_data.get("execution_time")}
+        return parse_circuit_response(response_data)
 
     def wait_for_events(self, url: str, headers: dict) -> bool:
         """
@@ -98,22 +67,15 @@ class SSEResultHandler:
             raise RuntimeError(
                 "SSE library not available. Install with: pip install requests-sse"
             )
-
         try:
             start_time = time.time()
-
             with EventSource(url, headers=headers) as event_source:
                 for event in event_source:
-                    # Check timeout
                     if time.time() - start_time > self.timeout:
-                        logger.warning(
-                            f"SSE connection timed out after {self.timeout}s"
-                        )
+                        self.error_message = "SSE connection timed out."
+                        logger.warning(self.error_message)
                         return False
-
-                    # Process event
                     event_data = event.data
-
                     if event_data:
                         try:
                             if isinstance(event_data, str) and event_data.startswith(
@@ -121,13 +83,9 @@ class SSEResultHandler:
                             ):
                                 event_data = event_data[5:].strip()
                             data = json.loads(event_data)
-
                             status = data.get("status", "")
                             job_id = data.get("job_id")
-
-                            logger.debug(f"SSE Event: job_id={job_id}, status={status}")
-
-                            # Check for completion
+                            logger.debug("SSE event: status=%s", status)
                             if status.lower() in [
                                 "success",
                                 "completed",
@@ -136,18 +94,10 @@ class SSEResultHandler:
                                 "cancelled",
                             ]:
                                 self.is_completed = True
-
                                 if status.lower() in ["success", "completed"]:
-                                    # Parse results
                                     response_value = data.get("response", "{}")
-                                    counts = None
-                                    execution_time = None
-                                    converted_statevector = None
-
+                                    parsed = parse_circuit_response({})
                                     try:
-                                        # Handle both dict (already parsed) and JSON string.
-                                        # If response is an S3 path string, parsing is skipped here;
-                                        # caller will fetch final results via job-status APIs.
                                         if isinstance(response_value, dict):
                                             response_data = response_value
                                         elif isinstance(
@@ -156,85 +106,66 @@ class SSEResultHandler:
                                             response_data = None
                                         else:
                                             response_data = json.loads(response_value)
-
                                         if isinstance(response_data, dict):
-                                            # Use device-specific parsing
-                                            if self.device_name == "QpiAI-Indus-1":
-                                                parsed_data = self._parse_qpu_response(
-                                                    response_data
-                                                )
-                                                counts = parsed_data.get("counts")
-                                                execution_time = parsed_data.get(
-                                                    "execution_time"
-                                                )
-                                            else:
-                                                parsed_data = (
-                                                    self._parse_simulator_response(
-                                                        response_data
-                                                    )
-                                                )
-                                                counts = parsed_data.get("counts")
-                                                execution_time = parsed_data.get(
-                                                    "execution_time"
-                                                )
-                                                converted_statevector = parsed_data.get(
-                                                    "statevector"
-                                                )
+                                            parsed = parse_circuit_response(
+                                                response_data
+                                            )
                                     except json.JSONDecodeError:
                                         logger.warning(
-                                            "SSE success event had non-JSON response payload; "
-                                            "continuing and deferring result fetch to job status API"
+                                            "SSE success event had non-JSON response payload; deferring result fetch to job status API"
                                         )
-
+                                    execution_time = decode_execution_time_seconds(
+                                        parsed["execution_time"]
+                                    )
+                                    if execution_time is None:
+                                        execution_time = decode_execution_time_seconds(
+                                            data.get("execution_time")
+                                        )
                                     self.final_result = {
-                                        "state_vector": converted_statevector,
-                                        "probabilities": None,
-                                        "histogram": counts,
+                                        "state_vector": parsed["statevector"],
+                                        "probabilities": parsed["probabilities"],
+                                        "density_matrix": parsed["density_matrix"],
+                                        "histogram": parsed["counts"],
+                                        "method": data.get("method")
+                                        or parsed.get("method"),
                                         "time": execution_time,
-                                        "cpu_usage": None,
-                                        "memory_usage": None,
-                                        "gpu_memory_usage": None,
+                                        "job_id": job_id or parsed.get("job_id"),
+                                        "metadata": parsed["metadata"],
+                                        "message": parsed["message"],
+                                        "response_data": response_value,
+                                        **{
+                                            field: data.get(field)
+                                            if data.get(field) is not None
+                                            else parsed.get(field)
+                                            for field in (
+                                                "cpu_usage",
+                                                "memory_usage",
+                                                "gpu_memory_usage",
+                                            )
+                                        },
                                     }
-
-                                    logger.info(
-                                        f"Job {job_id} completed successfully via SSE"
-                                    )
+                                    logger.info("Job completed successfully via SSE")
                                     return True
-
                                 elif status.lower() in ["failed", "error", "cancelled"]:
-                                    self.error_message = (
-                                        f"Job {job_id} failed with status: {status}"
-                                    )
-                                    error_detail = data.get(
-                                        "error",
-                                        data.get("error_message", "Unknown error"),
-                                    )
-                                    self.error_message += f"\nDetails: {error_detail}"
-                                    logger.error(self.error_message)
+                                    if status.lower() == "cancelled":
+                                        self.error_message = (
+                                            f"Job {job_id} was cancelled."
+                                        )
+                                    else:
+                                        self.error_message = f"Job {job_id} failed during execution. Review the circuit, backend settings, and job configuration before retrying."
                                     return False
-
                         except json.JSONDecodeError:
-                            logger.warning(
-                                f"Failed to parse SSE event data: {event_data}"
-                            )
+                            logger.warning("Failed to parse SSE event data")
                             continue
-
-        except InvalidStatusCodeError as e:
-            self.error_message = (
-                f"SSE connection failed with invalid status: {e.response.status_code}"
-            )
-            logger.error(self.error_message)
+        except InvalidStatusCodeError:
+            self.error_message = "Unable to open the live event stream for this job. Retry the run or check the job status manually."
             return False
         except InvalidContentTypeError:
-            self.error_message = "SSE endpoint returned invalid content-type (expected text/event-stream)"
-            logger.error(self.error_message)
+            self.error_message = "Unable to open the live event stream for this job. Retry the run or check the job status manually."
             return False
-        except Exception as e:
-            self.error_message = f"SSE connection error: {str(e)}"
-            logger.error(self.error_message)
+        except Exception:
+            self.error_message = "Lost the live event stream for this job. Retry the run or check the job status manually."
             return False
-
-        # Should not reach here normally
         return False
 
     def get_result(self) -> dict | None:

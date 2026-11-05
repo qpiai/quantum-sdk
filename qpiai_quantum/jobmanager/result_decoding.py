@@ -3,8 +3,7 @@
 import math
 import re
 from numbers import Integral, Real
-from typing import Any
-
+from typing import Any, SupportsFloat, SupportsIndex, cast
 from .exceptions import InvalidResponseError
 from .result_contract import (
     ContractValidationError,
@@ -64,7 +63,7 @@ def normalize_counts(counts: object) -> dict[str, int]:
                 count = int(math.trunc(value))
                 if value != count:
                     raise ValueError
-            elif isinstance(value, str) and re.fullmatch(r"\+?\d+", value.strip()):
+            elif isinstance(value, str) and re.fullmatch("\\+?\\d+", value.strip()):
                 count = int(value)
             else:
                 raise ValueError
@@ -74,8 +73,28 @@ def normalize_counts(counts: object) -> dict[str, int]:
         return normalized
     except (TypeError, ValueError, OverflowError) as exc:
         raise InvalidResponseError(
-            "The backend returned invalid measurement counts."
+            "The backend returned invalid measurement counts. Retry the job or contact support if this persists."
         ) from exc
+
+
+def decode_execution_time_seconds(value: object) -> float | None:
+    """Read a finite duration in seconds, including scientific notation strings."""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, str):
+        match = re.fullmatch(
+            "\\s*([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?)\\s*(?:s|secs?|seconds?)?\\s*",
+            value,
+            re.IGNORECASE,
+        )
+        if match is None:
+            return None
+        value = match.group(1)
+    try:
+        seconds = float(cast(str | SupportsFloat | SupportsIndex, value))
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return seconds if math.isfinite(seconds) and seconds >= 0 else None
 
 
 def parse_circuit_response(response: dict[str, Any]) -> dict[str, Any]:
@@ -97,9 +116,30 @@ def parse_circuit_response(response: dict[str, Any]) -> dict[str, Any]:
                 return layer[name]
         return None
 
+    metadata: dict[str, Any] = {}
+    for layer in layers:
+        if isinstance(layer.get("metadata"), dict):
+            metadata.update(layer["metadata"])
     return {
         "counts": decode_counts(response),
         "statevector": decode_statevector(field("statevector")),
         "density_matrix": decode_density_matrix(field("density_matrix")),
         "probabilities": field("probabilities"),
+        "execution_time": field("execution_time"),
+        "message": field("message"),
+        "metadata": metadata,
+        **{
+            name: field(name)
+            for name in (
+                "name",
+                "method",
+                "job_id",
+                "circuit_info",
+                "num_qubits",
+                "depth",
+                "cpu_usage",
+                "memory_usage",
+                "gpu_memory_usage",
+            )
+        },
     }

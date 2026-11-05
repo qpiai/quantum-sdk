@@ -3,7 +3,6 @@ from ..algorithms.base import QuantumAlgorithm
 from qpiai_quantum.circuit import Circuit
 from qpiai_quantum.jobmanager.job_result import JobResult
 from qpiai_quantum.results.base_result import BaseQuantumResult
-from qpiai_quantum.jobmanager import Backend
 
 
 class GHZStateGenerator(QuantumAlgorithm):
@@ -26,30 +25,20 @@ class GHZStateGenerator(QuantumAlgorithm):
         """
         if num_qubits < 3:
             raise ValueError(
-                f"GHZ state requires at least 3 qubits, got {num_qubits}. "
-                f"For 2 qubits, use BellStateGenerator instead."
+                f"GHZ state requires at least 3 qubits, got {num_qubits}. For 2 qubits, use BellStateGenerator instead."
             )
-
         super().__init__(num_qubits=num_qubits, name=f"GHZ State ({num_qubits} qubits)")
-
-        self.description = (
-            f"GHZ state with {num_qubits} qubits: "
-            f"|GHZ_{num_qubits}⟩ = (|{'0' * num_qubits}⟩ + |{'1' * num_qubits}⟩)/√2"
-        )
+        self.description = f"GHZ state with {num_qubits} qubits: |GHZ_{num_qubits}⟩ = (|{'0' * num_qubits}⟩ + |{'1' * num_qubits}⟩)/√2"
 
     def build_circuit(self, measure: bool = True, **kwargs) -> Circuit:
         num_classical = self.num_qubits if measure else 0
         self.circuit = Circuit(self.num_qubits, num_classical)
-
         self.circuit.h(0)
-
         for i in range(self.num_qubits - 1):
             self.circuit.cx(i, i + 1)
-
         if measure:
             for i in range(self.num_qubits):
                 self.circuit.measure(i, i)
-
         return self.circuit
 
     def get_expected_outcomes(self) -> dict[str, float]:
@@ -58,7 +47,6 @@ class GHZStateGenerator(QuantumAlgorithm):
         """
         all_zeros = "0" * self.num_qubits
         all_ones = "1" * self.num_qubits
-
         return {all_zeros: 0.5, all_ones: 0.5}
 
     def verify_entanglement(
@@ -69,22 +57,16 @@ class GHZStateGenerator(QuantumAlgorithm):
         """
         counts = result.get()["counts"]
         total_shots = sum(counts.values())
-
         expected = self.get_expected_outcomes()
-
         for state, expected_prob in expected.items():
             measured_count = counts.get(state, 0)
             measured_prob = measured_count / total_shots
-
             if measured_prob < threshold:
                 return False
-
         expected_count = sum(counts.get(state, 0) for state in expected.keys())
-        unexpected_prob = 1.0 - (expected_count / total_shots)
-
-        if unexpected_prob > (1 - 2 * threshold):
+        unexpected_prob = 1.0 - expected_count / total_shots
+        if unexpected_prob > 1 - 2 * threshold:
             return False
-
         return True
 
     def calculate_entanglement_depth(self) -> int:
@@ -111,11 +93,9 @@ class GHZStateGenerator(QuantumAlgorithm):
         """
         counts = result.get()["counts"]
         total_shots = sum(counts.values())
-
         num_observed_states = len(counts)
         expected_ghz_states = 2
         expected_product_states = 2**self.num_qubits
-
         import math
 
         entropy = 0.0
@@ -123,9 +103,7 @@ class GHZStateGenerator(QuantumAlgorithm):
             if count > 0:
                 p = count / total_shots
                 entropy -= p * math.log2(p)
-
         max_entropy = math.log2(expected_product_states)
-
         return {
             "observed_states": num_observed_states,
             "expected_ghz_states": expected_ghz_states,
@@ -133,7 +111,7 @@ class GHZStateGenerator(QuantumAlgorithm):
             "entropy": entropy,
             "max_entropy": max_entropy,
             "entropy_ratio": entropy / max_entropy,
-            "is_ghz_like": num_observed_states <= 3,  # NOTE Allowing small noise
+            "is_ghz_like": num_observed_states <= 3,
         }
 
     @staticmethod
@@ -159,7 +137,7 @@ class GHZStateGenerator(QuantumAlgorithm):
     def compare_different_sizes(
         qubit_range: list[int] = [3, 4, 5],
         shots: int = 1024,
-        backend: Backend | None = None,
+        device_name: str = "QpiAI-QSV-Simulator",
     ) -> dict[int, BaseQuantumResult]:
         """
         Compare GHZ states of different sizes.
@@ -170,36 +148,25 @@ class GHZStateGenerator(QuantumAlgorithm):
         Args:
             qubit_range (list[int]): list of qubit counts to test
             shots (int): Number of shots for each state
-            backend (Backend): Backend to use for execution
+            device_name (str): Device name used for execution
 
         Returns:
             dict[int, BaseQuantumResult]: Results for each qubit count
         """
         results = {}
-
-        from qpiai_quantum.jobmanager import Backend
-
-        if backend is None:
-            backend = Backend.STATEVECTOR_SIMULATOR_CPU
-
         for n in qubit_range:
             print(f"\n{'─' * 70}")
             print(f"GHZ State with {n} qubits")
             print(f"{'─' * 70}")
-
             ghz = GHZStateGenerator(num_qubits=n)
-            result = ghz.run(shots=shots, backend=backend)
+            result = ghz.run(shots=shots, device_name=device_name)
             results[n] = result
-
             counts = result.get()["counts"]
             print(f"Measurement counts: {counts}")
-
             is_entangled = ghz.verify_entanglement(result)
-            print(f"Entanglement verified: {'✓' if is_entangled else '✗'}")
-
+            print(f"Entanglement verified: {('✓' if is_entangled else '✗')}")
             expected = ghz.get_expected_outcomes()
             print(f"Expected outcomes: {list(expected.keys())}")
-
         return results
 
 

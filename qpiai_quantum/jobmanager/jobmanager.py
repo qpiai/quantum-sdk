@@ -4,11 +4,9 @@ import queue
 import threading
 import time
 from datetime import datetime
-from typing import Any, Optional
-
-import numpy as np  # type: ignore
-
-from ..authentication.user import get_active_auth_header
+from typing import Any, Literal
+import numpy as np
+from ..authentication.user import resolve_api_key
 from ..circuit.circuit import Circuit
 from ..config import HTTP_TIMEOUT, get_api_url, get_sse_url
 from ..icr.icr import IntermediateCircuitRepresentation
@@ -20,17 +18,18 @@ from .exceptions import (
     InvalidExperimentResponseError,
     InvalidResponseError,
     JobManagerError,
-    JobStatusError,
     JobSubmissionError,
 )
+from .backend import DeviceInfo, resolve_execution_request, DeviceRegistry
 from .job_result import JobResult
 from .result_decoding import (
+    decode_execution_time_seconds,
     decode_density_matrix,
     decode_statevector,
     parse_circuit_response,
 )
 from .result_contract import ContractValidationError, validate_binary_manifest
-from .sse_handler import SSEResultHandler, SSE_AVAILABLE
+from .sse_handler import SSE_AVAILABLE, SSEResultHandler
 
 logger = logging.getLogger("qpiai_quantum.jobmanager")
 
@@ -43,12 +42,17 @@ class JobManager:
     from quantum circuit execution jobs on QPIAI backends.
     """
 
-    _resource_cache: dict[tuple[str, str], str] = {}
+    _resource_cache: dict[tuple, tuple[str, float]] = {}
+    _resource_cache_lock = threading.Lock()
+    _resource_cache_generation = 0
 
     @classmethod
-    def clear_resource_cache(cls):
-        """Clear the compute resource ID cache."""
-        cls._resource_cache.clear()
+    def clear_resource_cache(cls) -> None:
+        """Clear cached compute-resource identifiers and the loaded device list."""
+        with cls._resource_cache_lock:
+            cls._resource_cache_generation += 1
+            cls._resource_cache.clear()
+        DeviceRegistry.clear()
 
     @staticmethod
     def track_job(func, job_name: str):
@@ -64,7 +68,6 @@ class JobManager:
         """
 
         def wrapper(*args, **kwargs):
-            print(f"Tracking job: {job_name}")
             return func(*args, **kwargs)
 
         return wrapper
@@ -79,92 +82,64 @@ class JobManager:
         Raises:
             BaseError: If user is not authenticated
         """
-        headers = get_active_auth_header()
+        token = resolve_api_key()
+        headers = {"X-Secret-Token": token} if token else None
         if headers is None:
-            logger.error("No API key in user context. Login required.")
-            raise AuthenticationError()
+            raise AuthenticationError(
+                "No API key found in the current user context. Please login using QpiAIQuantumAuth.login(...)."
+            )
         return headers
 
     def _get_compute_resource_id(self, method: str, device_name: str) -> str | None:
         """
         Get compute resource ID based on method and device_name.
-        Maps to the appropriate backend resource name.
+        Matches the device against the compute resources listed by the backend.
 
         Args:
             method (str): Execution method ("statevector", "density_matrix", "tensor_network",
                          or variants like "statevector_sampling")
-            device_name (str): Device name ("QpiAI-QSV-Simulator", "QpiAI-QDM-Simulator", "QpiAI-QTN-Simulator", "QpiAI-Indus-1", "QpiAI-QSV-Lite", "QpiAI-QDM-Lite")
+            device_name (str): Device name as listed by the backend, e.g. "QpiAI-QSV-Simulator"
 
         Returns:
             Optional[str]: Compute resource ID (UUID string), or None if not found
         """
-        cache_key = (method, device_name)
-        if cache_key in JobManager._resource_cache:
-            logger.debug(
-                f"Using cached compute resource ID for {cache_key}: {JobManager._resource_cache[cache_key]}"
+        context = DeviceRegistry._current_cache_key()
+        cache_key = (*context, method, device_name)
+        with self._resource_cache_lock:
+            generation = self._resource_cache_generation
+            cached_entry = self._resource_cache.get(cache_key)
+            if cached_entry and time.monotonic() - cached_entry[1] < 300:
+                return cached_entry[0]
+        resources = DeviceRegistry._fetch(context)
+        matches = []
+        for resource in resources:
+            if resource.get("execution_kind") == "emulator":
+                continue
+            if resource.get("status") not in {None, "active"}:
+                continue
+            if device_name not in {
+                resource.get("backend_name"),
+                resource.get("device_name"),
+            }:
+                continue
+            profile = DeviceInfo.from_resource(device_name, resource)
+            if profile.method == method and resource.get("ID"):
+                matches.append(resource["ID"])
+        if len(matches) != 1:
+            raise JobSubmissionError(
+                f"Expected one active matching resource for '{device_name}', found {len(matches)}. Refresh the device list and retry."
             )
-            return JobManager._resource_cache[cache_key]
-
-        try:
-            import requests
-        except ImportError:
-            logger.warning("requests not available, cannot fetch compute resource")
-            return None
-
-        resource_name_map = {
-            ("statevector", "QpiAI-QSV-Simulator"): "QpiAI-QSV-Simulator",
-            ("density_matrix", "QpiAI-QDM-Simulator"): "QpiAI-QDM-Simulator",
-            ("tensor_network", "QpiAI-QTN-Simulator"): "QpiAI-QTN-Simulator",
-            ("qpu", "QpiAI-Indus-1"): "QpiAI-Indus-1",
-            ("statevector_sampling", "QpiAI-QSV-Lite"): "QpiAI-QSV-Lite",
-            ("density_matrix", "QpiAI-QDM-Lite"): "QpiAI-QDM-Lite",
-        }
-        # Try with normalized values
-        resource_name = resource_name_map.get(cache_key)
-        # print(f"DevMapped to resource name: {resource_name}")
-        if not resource_name:
-            logger.warning(
-                f"No compute resource mapping for method={method}), "
-                f"device_name={device_name})"
-            )
-            return None
-
-        try:
-            # Fetch compute resources from API
-            url = get_api_url("/api/compute-resources")
-            headers = self._get_auth_header()
-            response = requests.get(url, headers=headers, timeout=HTTP_TIMEOUT)
-
-            if response.status_code == 200:
-                resources = response.json()
-                if isinstance(resources, dict) and "compute_resources" in resources:
-                    resources = resources["compute_resources"]
-
-                if isinstance(resources, list):
-                    for resource in resources:
-                        b_name = resource.get("backend_name")
-                        r_id = resource.get("ID")
-                        if b_name and r_id:
-                            for key_pair, val_name in resource_name_map.items():
-                                if val_name == b_name:
-                                    JobManager._resource_cache[key_pair] = r_id
-
-                if cache_key in JobManager._resource_cache:
-                    return JobManager._resource_cache[cache_key]
-
-            logger.warning(f"Could not find compute resource ID for {resource_name}")
-            return None
-
-        except Exception as e:
-            logger.warning(f"Error fetching compute resources: {e}")
-            return None
+        with self._resource_cache_lock:
+            if generation == self._resource_cache_generation:
+                self._resource_cache[cache_key] = (matches[0], time.monotonic())
+        return matches[0]
 
     def list_compute_resources(self) -> list[dict[str, Any]]:
         """
         List all available compute resources for the authenticated user.
 
         Returns:
-            list[Dict]: list of compute resources with their details
+            List[Dict]: List of compute resources with their details
 
         Raises:
             JobManagerError: If the API call fails
@@ -173,25 +148,38 @@ class JobManager:
             import requests
         except ImportError:
             raise JobManagerError(
-                "Failed to import requests, please install requests using `pip install requests`"
+                "requests is required. Install it with `pip install requests`."
             )
-
         try:
             url = get_api_url("/api/compute-resources")
             headers = self._get_auth_header()
             response = requests.get(url, headers=headers, timeout=HTTP_TIMEOUT)
             response.raise_for_status()
-
             resources = response.json()
             if isinstance(resources, list):
                 return resources
-            elif isinstance(resources, dict) and "compute_resources" in resources:
+            if isinstance(resources, dict) and "compute_resources" in resources:
                 return resources["compute_resources"]
+            return []
+        except JobManagerError:
+            raise
+        except requests.exceptions.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code >= 500:
+                raise JobManagerError(
+                    "The server encountered an internal error. Please try again later or contact support."
+                ) from exc
             else:
-                return []
-
-        except requests.exceptions.RequestException as e:
-            raise JobManagerError(f"Failed to list compute resources: {e}")
+                raise JobManagerError(
+                    "Unable to load compute resources. Check that your API key is valid and retry the request."
+                ) from exc
+        except requests.exceptions.RequestException as exc:
+            raise JobManagerError(
+                "Unable to load compute resources. Check that your API key is valid and retry the request."
+            ) from exc
+        except Exception as exc:
+            raise JobManagerError(
+                "Unable to load compute resources. Check that your API key is valid and retry the request."
+            ) from exc
 
     def get_experiment_id_by_name(self, experiment_name: str) -> str:
         """
@@ -211,49 +199,45 @@ class JobManager:
             import requests
         except ImportError:
             raise JobManagerError(
-                "Failed to import requests, please install requests using `pip install requests`"
+                "requests is required. Install it with `pip install requests`."
             )
-
         try:
             url = get_api_url(f"/api/experiments/by-name?name={experiment_name}")
             headers = self._get_auth_header()
             response = requests.get(url, headers=headers, timeout=HTTP_TIMEOUT)
-
             if response.status_code == 404:
-                raise ExperimentNotFoundError(experiment_name)
-
-            if response.status_code == 403:
-                error_msg = (
-                    f"Access denied (403 Forbidden) for experiment '{experiment_name}'.\n"
-                    "Possible causes:\n"
-                    "  1. Your API key doesn't have permission to access this experiment\n"
-                    "  2. The experiment belongs to a different user/account\n"
-                    "  3. Your API key is invalid or expired\n"
-                    "  4. The experiment doesn't exist - create it in the QpiAI web UI first\n\n"
-                    "Please verify:\n"
-                    "  - Your API key is correct and active\n"
-                    "  - The experiment exists and you have access to it\n"
-                    "  - You created the experiment in the QpiAI platform UI"
+                raise JobManagerError(
+                    f"Experiment '{experiment_name}' not found. Please create the experiment first."
                 )
-                raise JobManagerError(error_msg)
-
+            if response.status_code == 403:
+                raise JobManagerError("Access denied for the requested experiment.")
             response.raise_for_status()
-
             experiment_data = response.json()
             experiment_id = experiment_data.get("experiment_id")
-
             if not experiment_id:
-                raise InvalidExperimentResponseError()
-
+                raise InvalidExperimentResponseError(
+                    "Invalid response from experiments API: missing experiment_id."
+                )
             return experiment_id
-
-        except requests.exceptions.RequestException as e:
-            if "403" in str(e):
-                # Already handled above, re-raise
-                raise
+        except JobManagerError:
+            raise
+        except requests.exceptions.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code >= 500:
+                raise JobManagerError(
+                    "The server encountered an internal error. Please try again later or contact support."
+                ) from exc
+            else:
+                raise JobManagerError(
+                    f"Unable to look up experiment '{experiment_name}'. Check that the experiment exists and that your API key can access it."
+                ) from exc
+        except requests.exceptions.RequestException as exc:
             raise JobManagerError(
-                f"Failed to get experiment ID for '{experiment_name}': {e}"
-            )
+                f"Unable to look up experiment '{experiment_name}'. Check that the experiment exists and that your API key can access it."
+            ) from exc
+        except Exception as exc:
+            raise JobManagerError(
+                f"Unable to look up experiment '{experiment_name}'. Check the experiment name and retry."
+            ) from exc
 
     def _convert_circuit_to_qasm(self, circuit) -> str:
         """
@@ -290,7 +274,7 @@ class JobManager:
         qasm_string: str,
         experiment_name: str = "Default Experiment",
         shots: int = 1024,
-        method: str = "statevector",
+        method: str | None = None,
         need_statevector: bool = False,
         need_density_matrix: bool = False,
         device_name: str = "QpiAI-QSV-Simulator",
@@ -313,7 +297,7 @@ class JobManager:
             overwrite (bool): Whether to overwrite existing circuit with same name (default: False)
 
         Returns:
-            dict containing job ID and submission info:
+            Dict containing job ID and submission info:
                 - job_id: str, Unique job identifier
                 - status: str, Job status ("submitted")
                 - experiment_id: str, Experiment ID
@@ -324,16 +308,24 @@ class JobManager:
             BaseError: If submission fails, circuit exists and overwrite=False, QASM is invalid,
                    or experiment does not exist
         """
+        request = resolve_execution_request(
+            device_name,
+            method=method,
+            need_statevector=need_statevector,
+            need_density_matrix=need_density_matrix,
+        )
+        profile = request.device
+        method = profile.method
+        need_statevector = request.need_statevector
+        need_density_matrix = request.need_density_matrix
         try:
             import requests
         except ImportError:
             raise JobManagerError(
-                "Failed to import requests, please install requests using `pip install requests`"
+                "requests is required. Install it with `pip install requests`."
             )
-
         try:
             experiment_id = self.get_experiment_id_by_name(experiment_name)
-
             if circuit_name is None:
                 import uuid
 
@@ -342,70 +334,59 @@ class JobManager:
                 "QpiAI-QSV-Lite": "QpiAI-QSV-Simulator",
                 "QpiAI-QDM-Lite": "QpiAI-QDM-Simulator",
             }.get(device_name, device_name)
-
-            # Auto-determine compute_resource_id if not provided
             if compute_resource_id is None:
                 compute_resource_id = self._get_compute_resource_id(method, device_name)
                 if compute_resource_id:
                     logger.debug(
-                        f"Auto-selected compute resource: {compute_resource_id}"
+                        "Auto-selected compute resource for method=%s device_name=%s",
+                        method,
+                        device_name,
                     )
-
             headers = self._get_auth_header()
-
             circuit_url = get_api_url("/api/circuits/create")
-
-            circuit_payload = {
+            circuit_payload: dict[str, Any] = {
                 "openqasm_string": qasm_string,
                 "shots": shots,
                 "name": circuit_name,
                 "device_name": associated_device_name,
                 "source_type": "sdk",
             }
-            logger.debug(f"Creating circuit with payload: {circuit_payload}")
-
+            logger.debug("Creating circuit for experiment '%s'", experiment_name)
             circuit_response = requests.post(
                 circuit_url, json=circuit_payload, headers=headers, timeout=HTTP_TIMEOUT
             )
-
             if circuit_response.status_code == 409:
                 if not overwrite:
                     raise JobManagerError(
-                        f"Circuit '{circuit_name}' already exists (HTTP 409 Conflict). "
-                        f"To overwrite the existing circuit, set overwrite=True."
+                        f"Circuit '{circuit_name}' already exists. Set overwrite=True to replace it."
                     )
-
                 logger.info(
-                    f"Circuit '{circuit_name}' already exists, attempting to update..."
+                    "Circuit '%s' already exists, attempting to update...", circuit_name
                 )
-
                 try:
                     list_url = get_api_url("/api/circuits/?page=1&page_size=100")
                     if experiment_id:
                         list_url += f"&experiment_id={experiment_id}"
-
                     list_response = requests.get(
                         list_url, headers=headers, timeout=HTTP_TIMEOUT
                     )
                     list_response.raise_for_status()
-
                     circuits_data = list_response.json()
                     circuits = circuits_data.get("circuits", [])
-
                     existing_circuit = None
                     for circuit in circuits:
                         if circuit.get("name") == circuit_name:
                             existing_circuit = circuit
                             break
-
                     if existing_circuit and existing_circuit.get("id"):
                         circuit_id = existing_circuit["id"]
                         logger.info(
-                            f"Found existing circuit '{circuit_name}' with ID: {circuit_id}"
+                            "Found existing circuit '%s' with ID %s",
+                            circuit_name,
+                            circuit_id,
                         )
-
                         update_url = get_api_url(f"/api/circuits/{circuit_id}")
-                        update_payload = {
+                        update_payload: dict[str, Any] = {
                             "qasm": qasm_string,
                             "name": circuit_name,
                             "device_name": associated_device_name,
@@ -422,10 +403,13 @@ class JobManager:
                         )
                         circuit_update_response.raise_for_status()
                     else:
-                        raise CircuitNotFoundError(circuit_name)
-
+                        raise JobManagerError(
+                            f"Could not find the existing circuit '{circuit_name}' to update."
+                        )
+                except JobManagerError:
+                    raise
                 except Exception as update_error:
-                    raise CircuitUpdateError(update_error)
+                    raise CircuitUpdateError(update_error) from update_error
             else:
                 circuit_response.raise_for_status()
                 circuit_id = circuit_response.json().get("id")
@@ -439,75 +423,60 @@ class JobManager:
                 "shots": shots,
                 "device_name": device_name,
             }
-            # Only include compute_resource_id if it's provided
-
             if compute_resource_id is not None:
                 job_payload["compute_resource_id"] = compute_resource_id
-
             job_response = requests.post(
                 job_url, json=job_payload, headers=headers, timeout=HTTP_TIMEOUT
             )
-
-            # Enhanced error handling for 400 Bad Request
             if job_response.status_code == 400:
-                try:
-                    error_detail = job_response.json()
-                    error_msg = (
-                        f"Bad Request (400) when submitting job.\n"
-                        f"Server response: {error_detail}\n\n"
-                        "Common causes:\n"
-                        "  1. You may not have access to the specified compute resource\n"
-                        "     (if part of an organization, contact your administrator)\n"
-                        "  2. Invalid circuit QASM format\n"
-                        "  3. Invalid method or device_name value\n"
-                        "  4. Missing or invalid circuit_id or experiment_id\n"
-                        "  5. Invalid shots value (must be positive integer)\n\n"
-                        f"Request payload:\n"
-                        f"  - circuit_id: {circuit_id}\n"
-                        f"  - experiment_id: {experiment_id}\n"
-                        f"  - method: {method}\n"
-                        f"  - device_name: {device_name}\n"
-                        f"  - shots: {shots}\n"
-                        f"  - compute_resource_id: {compute_resource_id}"
-                    )
-                except Exception:
-                    error_msg = f"Bad Request (400) when submitting job. Response: {job_response.text}"
-                raise JobSubmissionError(error_msg)
-
+                raise JobSubmissionError(
+                    "Job submission was rejected. Please verify the circuit, method, device, and shot count.\n\nCommon causes:\n  1. You may not have access to the specified compute resource\n  2. Invalid circuit QASM format\n  3. Invalid method or device_name value\n  4. Missing or invalid circuit_id or experiment_id\n  5. Invalid shots value (must be positive integer)"
+                )
             job_response.raise_for_status()
             job_data = job_response.json()
-
             if "job" in job_data:
                 job_info = job_data["job"]
                 job_id = job_info.get("id")
                 job_status = job_info.get("status", "submitted")
-                job_info.get("created_at")
             else:
                 job_id = job_data.get("id")
                 job_status = job_data.get("status", "submitted")
-                job_data.get("created_at")
-
             if not job_id:
-                raise JobSubmissionError()
-
+                raise JobSubmissionError(
+                    "Job submission failed because the server did not return a job ID. Retry the submission and contact support if this persists."
+                )
             return {
                 "job_id": job_id,
                 "status": job_status,
                 "experiment_id": experiment_id,
                 "circuit_id": circuit_id,
             }
-
-        except requests.exceptions.RequestException as e:
-            raise JobSubmissionError(f"Failed to submit QASM job: {e}")
-        except Exception as e:
-            raise JobManagerError(f"Error during QASM job submission: {e}")
+        except JobManagerError:
+            raise
+        except requests.exceptions.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code >= 500:
+                raise JobSubmissionError(
+                    "The server encountered an internal error. Please try again later or contact support."
+                ) from exc
+            else:
+                raise JobSubmissionError(
+                    "Unable to submit the job. Check the experiment name, circuit, backend settings, and shot count, then try again."
+                ) from exc
+        except requests.exceptions.RequestException as exc:
+            raise JobSubmissionError(
+                "Unable to submit the job. Check the experiment name, circuit, backend settings, and shot count, then try again."
+            ) from exc
+        except Exception as exc:
+            raise JobManagerError(
+                "Unable to submit the job. Check the experiment name, circuit, backend settings, and shot count, then try again."
+            ) from exc
 
     def submit_circuit_job(
         self,
         circuit: Circuit | IntermediateCircuitRepresentation,
         experiment_name: str = "Default Experiment",
         shots: int = 1024,
-        method: str = "statevector",
+        method: str | None = None,
         need_statevector: bool = False,
         need_density_matrix: bool = False,
         device_name: str = "QpiAI-QSV-Simulator",
@@ -533,7 +502,7 @@ class JobManager:
             overwrite (bool): Whether to overwrite existing circuit with same name (default: False)
 
         Returns:
-            dict containing job ID and submission info:
+            Dict containing job ID and submission info:
                 - job_id: str, Unique job identifier
                 - status: str, Job status ("submitted")
                 - experiment_id: str, Experiment ID
@@ -545,7 +514,6 @@ class JobManager:
                    or experiment does not exist
         """
         qasm_string = self._convert_circuit_to_qasm(circuit)
-
         return self.submit_qasm_job(
             qasm_string=qasm_string,
             experiment_name=experiment_name,
@@ -554,7 +522,7 @@ class JobManager:
             need_statevector=need_statevector,
             need_density_matrix=need_density_matrix,
             device_name=device_name,
-            circuit_name=circuit_name or "circuit",
+            circuit_name=circuit_name or "Circuit",
             compute_resource_id=compute_resource_id,
             overwrite=overwrite,
         )
@@ -581,7 +549,7 @@ class JobManager:
                 - server_response_id: str or None, Response ID
                 - error: str or None, Error message if failed
                 - credits_used: int, Credits consumed
-                - execution_time_ms: int, Execution time in milliseconds
+                - execution_time: float, Execution time in seconds
                 - created_at: str, Creation timestamp
                 - updated_at: str, Last update timestamp
                 - response_data: str or None, MongoDB response data
@@ -593,19 +561,16 @@ class JobManager:
             import requests
         except ImportError:
             raise JobManagerError(
-                "Failed to import requests, please install requests using `pip install requests`"
+                "requests is required. Install it with `pip install requests`."
             )
         try:
-            import requests
-            import json
-
             url = get_api_url(f"/api/jobs/{job_id}")
             headers = self._get_auth_header()
             response = requests.get(
                 url, headers=headers, stream=True, timeout=HTTP_TIMEOUT
             )
             if response.status_code == 404:
-                logger.info(f"Job {job_id} not found")
+                logger.info("Job %s not found", job_id)
                 return None
             response.raise_for_status()
             chunks = []
@@ -613,10 +578,25 @@ class JobManager:
                 if chunk:
                     chunks.append(chunk)
             return json.loads(b"".join(chunks))
-        except requests.exceptions.RequestException as e:
-            raise JobStatusError(job_id, e)
-        except Exception as e:
-            raise JobManagerError(f"Unexpected error while getting job status: {e}")
+        except JobManagerError:
+            raise
+        except requests.exceptions.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code >= 500:
+                raise JobManagerError(
+                    "The server encountered an internal error. Please try again later or contact support."
+                ) from exc
+            else:
+                raise JobManagerError(
+                    f"Unable to retrieve the status for job {job_id}. Confirm the job ID is correct and retry."
+                ) from exc
+        except requests.exceptions.RequestException as exc:
+            raise JobManagerError(
+                f"Unable to retrieve the status for job {job_id}. Confirm the job ID is correct and retry."
+            ) from exc
+        except Exception as exc:
+            raise JobManagerError(
+                f"Unable to retrieve the status for job {job_id}. Confirm the job ID is correct and retry."
+            ) from exc
 
     def get_current_job(self) -> dict[str, Any] | None:
         """
@@ -645,30 +625,38 @@ class JobManager:
             import requests
         except ImportError:
             raise JobManagerError(
-                "Failed to import requests, please install requests using `pip install requests`"
+                "requests is required. Install it with `pip install requests`."
             )
-
         try:
-            # Query for currently running jobs
             url = get_api_url("/api/jobs/user?status=running&page_size=1")
             headers = self._get_auth_header()
             response = requests.get(url, headers=headers, timeout=HTTP_TIMEOUT)
             response.raise_for_status()
-
             data = response.json()
             jobs = data.get("jobs", [])
-
             if not jobs:
                 logger.info("No currently running job found")
                 return None
-
-            # Return the first (and only) running job
             return jobs[0]
-
-        except requests.exceptions.RequestException as e:
-            raise JobManagerError(f"Failed to get current job: {e}")
-        except Exception as e:
-            raise JobManagerError(f"Unexpected error while getting current job: {e}")
+        except JobManagerError:
+            raise
+        except requests.exceptions.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code >= 500:
+                raise JobManagerError(
+                    "The server encountered an internal error. Please try again later or contact support."
+                ) from exc
+            else:
+                raise JobManagerError(
+                    "Unable to load the current job. Retry the request or query a specific job ID instead."
+                ) from exc
+        except requests.exceptions.RequestException as exc:
+            raise JobManagerError(
+                "Unable to load the current job. Retry the request or query a specific job ID instead."
+            ) from exc
+        except Exception as exc:
+            raise JobManagerError(
+                "Unable to load the current job. Retry the request or query a specific job ID instead."
+            ) from exc
 
     def get_job_history(
         self,
@@ -709,24 +697,20 @@ class JobManager:
             BaseError: If API call fails, invalid parameters, or authentication error occurs
         """
         try:
-            import requests  # type: ignore
+            import requests
         except ImportError:
             raise JobManagerError(
-                "Failed to import requests, please install requests using `pip install requests`"
+                "requests is required. Install it with `pip install requests`."
             )
-
         try:
-            # Validate parameters
             if page < 1:
-                raise JobManagerError("Page number must be >= 1")
+                raise JobManagerError("Page number must be >= 1.")
             if page_size < 1 or page_size > 100:
-                raise JobManagerError("Page size must be between 1 and 100")
-
+                raise JobManagerError("Page size must be between 1 and 100.")
             if period:
                 valid_periods = ["daily", "weekly", "monthly"]
                 if period not in valid_periods:
-                    raise JobManagerError(f"Period must be one of: {valid_periods}")
-
+                    raise JobManagerError(f"Period must be one of: {valid_periods}.")
             if status:
                 valid_statuses = [
                     "pending",
@@ -737,27 +721,18 @@ class JobManager:
                     "scheduled",
                 ]
                 if status.lower() not in valid_statuses:
-                    raise JobManagerError(f"Status must be one of: {valid_statuses}")
-
-            # Build query parameters
+                    raise JobManagerError(f"Status must be one of: {valid_statuses}.")
             params: dict[str, Any] = {"page": page, "page_size": page_size}
-
             if period:
                 params["period"] = period
             if status:
                 params["status"] = status
-
-            # Convert params dict to query string
             query_string = "&".join([f"{k}={v}" for k, v in params.items()])
             url = get_api_url(f"/api/jobs/user?{query_string}")
-
             headers = self._get_auth_header()
             response = requests.get(url, headers=headers, timeout=HTTP_TIMEOUT)
             response.raise_for_status()
-
             data = response.json()
-
-            # Ensure expected structure
             return {
                 "jobs": data.get("jobs", []),
                 "pagination": {
@@ -768,11 +743,25 @@ class JobManager:
                     "total": data.get("pagination", {}).get("total", 0),
                 },
             }
-
-        except requests.exceptions.RequestException as e:
-            raise JobManagerError(f"Failed to get job history: {e}")
-        except Exception as e:
-            raise JobManagerError(f"Unexpected error while getting job history: {e}")
+        except JobManagerError:
+            raise
+        except requests.exceptions.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code >= 500:
+                raise JobManagerError(
+                    "The server encountered an internal error. Please try again later or contact support."
+                ) from exc
+            else:
+                raise JobManagerError(
+                    "Unable to load job history. Retry the request or simplify the page, status, and period filters."
+                ) from exc
+        except requests.exceptions.RequestException as exc:
+            raise JobManagerError(
+                "Unable to load job history. Retry the request or simplify the page, status, and period filters."
+            ) from exc
+        except Exception as exc:
+            raise JobManagerError(
+                "Unable to load job history. Retry the request or simplify the page, status, and period filters."
+            ) from exc
 
     def cancel_job(self, job_id: str) -> dict[str, Any]:
         """
@@ -804,18 +793,13 @@ class JobManager:
             import requests
         except ImportError:
             raise JobManagerError(
-                "Failed to import requests, please install requests using `pip install requests`"
+                "requests is required. Install it with `pip install requests`."
             )
-
         try:
-            # First check if job exists and get its current status
             job_info = self.get_job_status(job_id)
             if not job_info:
-                raise JobManagerError(f"Job {job_id} not found")
-
+                raise JobManagerError(f"Job {job_id} not found.")
             current_status = job_info.get("status", "unknown")
-
-            # Check if job can be cancelled
             if current_status.lower() in [
                 "completed",
                 "success",
@@ -823,51 +807,55 @@ class JobManager:
                 "cancelled",
             ]:
                 raise JobManagerError(
-                    f"Cannot cancel job {job_id}: Job is already {current_status}. "
-                    f"Only pending, running, or scheduled jobs can be cancelled."
+                    f"Cannot cancel job {job_id} because it is already {current_status}."
                 )
-
-            # Send cancellation request
             url = get_api_url(f"/api/jobs/{job_id}/cancel")
             headers = self._get_auth_header()
             response = requests.post(url, headers=headers, timeout=HTTP_TIMEOUT)
-
             if response.status_code == 404:
-                raise JobManagerError(f"Job {job_id} not found")
-            elif response.status_code == 409:
-                # Job might already be in a non-cancellable state
+                raise JobManagerError(f"Job {job_id} not found.")
+            if response.status_code == 409:
                 raise JobManagerError(
-                    f"Job {job_id} cannot be cancelled (HTTP 409). "
-                    f"It may have already completed or is in a non-cancellable state."
+                    f"Job {job_id} cannot be cancelled in its current state."
                 )
-
             response.raise_for_status()
-
-            # Get updated job status to confirm cancellation
             updated_job_info = self.get_job_status(job_id)
             new_status = (
                 updated_job_info.get("status", "unknown")
                 if updated_job_info
                 else "unknown"
             )
-
             logger.info(
-                f"Job {job_id} cancelled successfully (was {current_status}, now {new_status})"
+                "Job %s cancelled successfully (was %s, now %s)",
+                job_id,
+                current_status,
+                new_status,
             )
-
             return {
                 "job_id": job_id,
                 "status": new_status,
                 "message": f"Job {job_id} cancelled successfully",
                 "previous_status": current_status,
             }
-
-        except requests.exceptions.RequestException as e:
-            raise JobManagerError(f"Failed to cancel job {job_id}: {e}")
-        except Exception as e:
+        except JobManagerError:
+            raise
+        except requests.exceptions.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code >= 500:
+                raise JobManagerError(
+                    "The server encountered an internal error. Please try again later or contact support."
+                ) from exc
+            else:
+                raise JobManagerError(
+                    f"Unable to cancel job {job_id}. Check that the job exists and is still running or queued."
+                ) from exc
+        except requests.exceptions.RequestException as exc:
             raise JobManagerError(
-                f"Unexpected error while cancelling job {job_id}: {e}"
-            )
+                f"Unable to cancel job {job_id}. Check that the job exists and is still running or queued."
+            ) from exc
+        except Exception as exc:
+            raise JobManagerError(
+                f"Unable to cancel job {job_id}. Check that the job exists and is still running or queued."
+            ) from exc
 
     def delete_job(self, job_id: str) -> dict[str, Any]:
         """
@@ -898,206 +886,84 @@ class JobManager:
             import requests
         except ImportError:
             raise JobManagerError(
-                "Failed to import requests, please install requests using `pip install requests`"
+                "requests is required. Install it with `pip install requests`."
             )
-
         try:
-            # First check if job exists
             job_info = self.get_job_status(job_id)
             if not job_info:
-                raise JobManagerError(f"Job {job_id} not found")
-
-            # Send deletion request
+                raise JobManagerError(f"Job {job_id} not found.")
             url = get_api_url(f"/api/jobs/{job_id}")
             headers = self._get_auth_header()
             response = requests.delete(url, headers=headers, timeout=HTTP_TIMEOUT)
-
             if response.status_code == 404:
-                raise JobManagerError(f"Job {job_id} not found")
-            elif response.status_code == 403:
+                raise JobManagerError(f"Job {job_id} not found.")
+            if response.status_code == 403:
                 raise JobManagerError(
-                    f"Permission denied: Cannot delete job {job_id}. "
-                    f"You may not have permission to delete this job."
+                    f"You do not have permission to delete job {job_id}."
                 )
-            elif response.status_code == 409:
+            if response.status_code == 409:
                 raise JobManagerError(
-                    f"Job {job_id} cannot be deleted (HTTP 409). "
-                    f"It may be currently running or in a protected state."
+                    f"Job {job_id} cannot be deleted in its current state."
                 )
-
             response.raise_for_status()
-
-            logger.info(f"Job {job_id} deleted successfully")
-
+            logger.info("Job %s deleted successfully", job_id)
             return {
                 "job_id": job_id,
                 "message": f"Job {job_id} deleted successfully",
                 "deleted": True,
             }
-
-        except requests.exceptions.RequestException as e:
-            raise JobManagerError(f"Failed to delete job {job_id}: {e}")
-        except Exception as e:
-            raise JobManagerError(f"Unexpected error while deleting job {job_id}: {e}")
-
-    def get_job_results(
-        self, job_id: str, device_name: str | None = None
-    ) -> "JobResult":
-        """
-        Retrieve quantum computation results for a completed job.
-
-        Args:
-            job_id (str): The unique identifier of the job
-            device_name (Optional[str]): Device name for format-specific parsing
-
-        Returns:
-            Results dictionary with measurement counts and metadata:
-                - job_id: str, Job unique identifier
-                - status: str, Job status (should be "completed")
-                - results: dict, Quantum measurement results:
-                    - counts: dict, Measurement counts for each basis state
-                        - "00": int, Count for 00 state
-                        - "01": int, Count for 01 state
-                        - "10": int, Count for 10 state
-                        - "11": int, Count for 11 state
-                        - ... (for higher qubit counts)
-                    - shots: int, Total number of shots executed
-                    - execution_metadata: dict:
-                        - execution_time_ms: int, Execution time in milliseconds
-                        - device_name: str, Device name
-                        - method: str, Execution method ("statevector" or "qasm")
-                        - credits_used: int, Credits consumed for execution
-                - circuit_info: dict, Circuit information:
-                    - name: str, Circuit name
-                    - qubits: int, Number of qubits
-                    - depth: int, Circuit depth
-                - timing: dict, Execution timing information:
-                    - created_at: str, Job creation timestamp
-                    - started_at: str, Job start timestamp
-                    - completed_at: str, Job completion timestamp
-
-        Raises:
-            BaseError: If job not found, not completed, results unavailable, or API error occurs
-
-        Note:
-            Returns error information if job failed.
-            Times out or returns partial results if job not yet completed.
-        """
-        try:
-            import requests
-        except ImportError:
-            raise JobManagerError(
-                "Failed to import requests, please install requests using `pip install requests`"
-            )
-
-        try:
-            # First get job status to check completion
-            job_info = self.get_job_status(job_id)
-            if not job_info:
-                raise JobManagerError(f"Job {job_id} not found")
-
-            job_status = job_info.get("status", "unknown")
-
-            if job_status.lower() not in ["completed", "success"]:
-                if job_status.lower() == "failed":
-                    raise JobManagerError(
-                        f"Job {job_id} failed with error: {job_info.get('error', 'Unknown error')}"
-                    )
-                elif job_status.lower() in [
-                    "pending",
-                    "running",
-                    "scheduled",
-                    "success",
-                ]:
-                    raise JobManagerError(
-                        f"Job {job_id} is still {job_status}, results not yet available"
-                    )
-                else:
-                    raise JobManagerError(
-                        f"Job {job_id} has status '{job_status}', cannot retrieve results"
-                    )
-
-            # Get job details (includes results if completed)
-            url = get_api_url(f"/api/jobs/{job_id}")
-            headers = self._get_auth_header()
-            response = requests.get(url, headers=headers, timeout=HTTP_TIMEOUT)
-            response.raise_for_status()
-            job_data = response.json()
-
-            # Extract response_data or server_response which contains the actual results
-            response_data = job_data.get(
-                "response_data", job_data.get("server_response")
-            )
-            if not response_data:
-                raise InvalidResponseError(
-                    f"Job {job_id} completed but no results data available"
-                )
-
-            # Parse results data (supports direct JSON or S3 path indirection)
-            try:
-                results_data = self._resolve_job_response_data(
-                    response_data, job_id=job_id
-                )
-            except Exception as e:
-                raise InvalidResponseError(f"Failed to resolve results data: {e}")
-
-            if not isinstance(results_data, dict):
-                raise InvalidResponseError(
-                    f"Resolved results data must be a dictionary, got {type(results_data).__name__}"
-                )
-
-            parsed = parse_circuit_response(results_data)
-            counts = parsed["counts"] or {}
-
-            execution_result = JobResult(
-                name=results_data.get("name", f"Job_{job_id}"),
-                counts=counts,
-                statevector=parsed["statevector"],
-                probabilities=parsed["probabilities"],
-                density_matrix=parsed["density_matrix"],
-                message="Job completed successfully",
-                execution_time=job_data.get("execution_time_ms", 0) / 1000.0
-                if job_data.get("execution_time_ms")
-                else 0.0,
-                shots=sum(counts.values()) if counts else 0,
-                cpu_usage=job_data.get("cpu_usage", 0.0),
-                memory_usage=job_data.get("memory_usage", 0.0),
-                gpu_memory_usage=job_data.get("gpu_memory_usage", 0.0),
-                job_id=job_id,
-                job_status=job_status,
-                method=results_data.get("method", job_data.get("method", "unknown")),
-                credits_used=job_data.get("credits_used", 0),
-            )
-
-            # Store additional metadata in the JobResult object
-            execution_result.job_metadata = {
-                "device_name": job_data.get("device_name", "unknown"),
-                "method": results_data.get("method", job_data.get("method", "unknown")),
-                "credits_used": job_data.get("credits_used", 0),
-                "circuit_info": results_data.get(
-                    "circuit_info",
-                    {
-                        "name": results_data.get("name", "unknown"),
-                        "qubits": results_data.get("num_qubits", 0),
-                        "depth": results_data.get("depth", 0),
-                    },
-                ),
-                "timing": {
-                    "created_at": job_data.get("created_at"),
-                    # "started_at": job_data.get("started_at"),
-                    "completed_at": job_data.get("updated_at"),
-                },
-            }
-
-            # Return JobResult directly for easy migration
-            return execution_result
-
         except JobManagerError:
             raise
-        except requests.exceptions.RequestException as e:
-            raise JobManagerError(f"Failed to retrieve results for job {job_id}: {e}")
-        except Exception as e:
-            raise JobManagerError(f"Unexpected error while getting job results: {e}")
+        except requests.exceptions.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code >= 500:
+                raise JobManagerError(
+                    "The server encountered an internal error. Please try again later or contact support."
+                ) from exc
+            else:
+                raise JobManagerError(
+                    f"Unable to delete job {job_id}. Check that the job exists and is already finished or cancelled."
+                ) from exc
+        except requests.exceptions.RequestException as exc:
+            raise JobManagerError(
+                f"Unable to delete job {job_id}. Check that the job exists and is already finished or cancelled."
+            ) from exc
+        except Exception as exc:
+            raise JobManagerError(
+                f"Unable to delete job {job_id}. Check that the job exists and is already finished or cancelled."
+            ) from exc
+
+    def get_job_results(self, job_id: str, device_name: str | None = None) -> JobResult:
+        """Retrieve a completed job with decoded artifacts and execution time in seconds.
+
+        The job endpoint is read once. JSON and stored artifacts use the same
+        conversion as submission/wait, including job context and metadata.
+        """
+        try:
+            job_info = self.get_job_status(job_id)
+            if not job_info:
+                raise JobManagerError(f"Job {job_id} not found.")
+            status = str(job_info.get("status") or "unknown")
+            if status.lower() not in {"completed", "success"}:
+                if status.lower() in {"failed", "error", "cancelled"}:
+                    raise JobManagerError(
+                        f"Job {job_id} {status.lower()}. Results are unavailable."
+                    )
+                raise JobManagerError(
+                    f"Job {job_id} is {status}. Results are not yet available."
+                )
+            return self._parse_job_results(
+                job_info,
+                circuit_name=job_info.get("name") or f"Job_{job_id}",
+                shots=job_info.get("shots") or 0,
+                device_name=device_name,
+                job_id=job_id,
+            )
+        except (JobManagerError, InvalidResponseError):
+            raise
+        except Exception as exc:
+            raise InvalidResponseError(
+                f"Results for job {job_id} could not be loaded. Retry the request or contact support if this persists."
+            ) from exc
 
     def _extract_s3_result_reference(
         self, response_data: Any
@@ -1139,6 +1005,11 @@ class JobManager:
 
         return None
 
+    def _extract_s3_path_from_response(self, response_data: Any) -> str | None:
+        """Return only the S3 path from a nested result response."""
+        reference = self._extract_s3_result_reference(response_data)
+        return reference[0] if reference else None
+
     @staticmethod
     def _decode_binary_artifact_payload(
         raw_bytes: bytes, manifest: dict[str, Any]
@@ -1173,11 +1044,6 @@ class JobManager:
             "execution_time": execution_time,
             "message": "Job completed successfully",
         }
-
-    def _extract_s3_path_from_response(self, response_data: Any) -> str | None:
-        """Return only the S3 path from a nested result response."""
-        reference = self._extract_s3_result_reference(response_data)
-        return reference[0] if reference else None
 
     def _download_s3_result_via_backend(
         self,
@@ -1313,70 +1179,7 @@ class JobManager:
         Returns:
             Dictionary with extracted quantum results and metadata
         """
-        # Extract data from server_response.results.data
-        results_obj = response_data.get("results")
-
-        if results_obj is not None:
-            # Handle case where 'results' is a list (common in some API versions)
-            if isinstance(results_obj, list) and len(results_obj) > 0:
-                results_data = results_obj[0]
-            else:
-                results_data = results_obj
-            data = results_data.get("data", {})
-        else:
-            # results is missing, look for data at top level
-            data = response_data.get("data", {})
-
-        if not data and isinstance(response_data, dict):
-            # Fallback for alternative structures
-            data = response_data
-
-        return {
-            "counts": data.get("counts"),
-            "statevector": decode_statevector(data.get("statevector")),
-            "density_matrix": decode_density_matrix(data.get("density_matrix")),
-            "probabilities": data.get("probabilities"),
-            "execution_time": response_data.get("execution_time"),
-            "message": response_data.get("message"),
-        }
-
-    def _parse_qpu_response(self, response_data: dict) -> dict:
-        """
-        Parse QPU response format with nested structure: results.results.counts
-
-        Args:
-            response_data: Server response dictionary from QPU
-
-        Returns:
-            Dictionary with extracted quantum results and QPU-specific metadata
-        """
-        counts = None
-        qpu_metadata = {}
-
-        if isinstance(response_data, dict):
-            # Newer QPU payloads may return counts at top-level under "counts".
-            counts = response_data.get("counts")
-
-            # Backward-compatible handling for older nested structures.
-            if counts is None and "results" in response_data:
-                results = response_data["results"]
-                if isinstance(results, dict):
-                    counts = results.get("counts")
-                    if counts is None and "results" in results:
-                        nested_results = results["results"]
-                        if isinstance(nested_results, dict):
-                            counts = nested_results.get("counts")
-
-        qpu_metadata = response_data.get("metadata", {})
-        qpu_metadata["job_id"] = response_data.get("job_id")
-
-        return {
-            "counts": counts,
-            "metadata": qpu_metadata,
-            "execution_time": response_data.get("execution_time"),
-            "message": response_data.get("message"),
-            "qpu_specific": True,
-        }
+        return parse_circuit_response(response_data)
 
     def _parse_job_results(
         self,
@@ -1384,137 +1187,107 @@ class JobManager:
         circuit_name: str,
         shots: int,
         device_name: str | None = None,
-        need_statevector=False,
-        need_density_matrix=False,
+        need_statevector: bool = False,
+        need_density_matrix: bool = False,
+        *,
+        job_id: str | None = None,
     ) -> JobResult:
-        """
-        Parse job results from API response into a JobResult object.
-
-        Args:
-            job_result: Job status dictionary from API
-            circuit_name: Name of the circuit
-            shots: Number of shots executed
-            device_name: Device name for format-specific parsing
-
-        Returns:
-            JobResult object with parsed quantum execution results
-
-        Raises:
-            BaseError: If results parsing fails or data is invalid
-        """
-
-        # Parse server_response to get quantum computation results
-        server_response_str = job_result.get("server_response")
-        parsed_server_response = None
-        counts = None
-        statevector = None
-        probabilities = None
-        density_matrix = None
-        execution_time_seconds = None
-        message = None
-        qpu_metadata = {}
-
-        if server_response_str:
-            try:
-                parsed_server_response = self._resolve_job_response_data(
-                    server_response_str,
-                    job_id=job_result.get("id")
-                    or job_result.get("job_id")
-                    or job_result.get("proxy_id"),
-                )
-                if not isinstance(parsed_server_response, dict):
-                    raise InvalidResponseError(
-                        f"Resolved server_response must be a dictionary, got {type(parsed_server_response).__name__}"
-                    )
-
-                # Use device-specific parsing
-                if device_name == "QpiAI-Indus-1":
-                    # Use QPU-specific parsing
-                    parsed_data = self._parse_qpu_response(parsed_server_response)
-                    counts = parsed_data.get("counts")
-                    execution_time_seconds = parsed_data.get("execution_time")
-                    message = parsed_data.get("message")
-                    qpu_metadata = parsed_data.get("metadata", {})
-
-                    # For QPU, statevector and other data might not be available
-                    # Keep defaults as None unless found in fallback parsing
-                else:
-                    # Use simulator parsing (default)
-                    parsed_data = self._parse_simulator_response(parsed_server_response)
-                    counts = parsed_data.get("counts")
-                    statevector = parsed_data.get("statevector")
-                    probabilities = parsed_data.get("probabilities")
-                    density_matrix = parsed_data.get("density_matrix")
-                    execution_time_seconds = parsed_data.get("execution_time")
-                    message = parsed_data.get("message")
-
-                # Convert counts to proper integer values if they're strings
-                if counts and isinstance(counts, dict):
-                    counts = {k: int(v) for k, v in counts.items()}
-
-            except (
-                json.JSONDecodeError,
-                TypeError,
-                InvalidResponseError,
-                JobManagerError,
-            ) as e:
-                logger.warning(f"Failed to parse server_response: {e}")
-                raise
-
-        # Calculate total shots from counts
-        total_shots = sum(counts.values()) if counts else shots
-
-        # Use execution_time from server_response if available, otherwise fall back to job's execution_time
-        if execution_time_seconds is not None:
-            try:
-                if isinstance(execution_time_seconds, str):
-                    # Handle cases like '0.1225 seconds'
-                    import re
-
-                    match = re.search(r"[-+]?\d*\.?\d+", execution_time_seconds)
-                    job_execution_time = float(match.group()) if match else 0.0
-                else:
-                    job_execution_time = float(execution_time_seconds)
-            except (ValueError, TypeError, AttributeError):
-                job_execution_time = 0.0
-        else:
-            # job has execution_time in seconds
-            job_execution_time = job_result.get("execution_time", 0.0)
-
-        # Build job metadata with QPU-specific data if available
+        """Convert a stored job into the result shared by retrieval and submit/wait."""
+        job_id = (
+            job_id
+            or job_result.get("id")
+            or job_result.get("job_id")
+            or job_result.get("proxy_id")
+        )
+        response_data = None
+        for field in ("response_data", "server_response"):
+            candidate = job_result.get(field)
+            if candidate is not None and (
+                not (isinstance(candidate, str) and (not candidate.strip()))
+            ):
+                response_data = candidate
+                break
+        if response_data is None:
+            raise InvalidResponseError(
+                f"Job {job_id} completed but no results data are available."
+            )
+        resolved_response = self._resolve_job_response_data(
+            response_data, job_id=job_id
+        )
+        if not isinstance(resolved_response, dict):
+            raise InvalidResponseError(
+                "The job returned results in an unsupported format. Retry the request or contact support if this persists."
+            )
+        parsed = parse_circuit_response(resolved_response)
+        counts = parsed["counts"]
+        execution_time = decode_execution_time_seconds(parsed["execution_time"])
+        if execution_time is None:
+            execution_time = decode_execution_time_seconds(
+                job_result.get("execution_time")
+            )
+        if execution_time is None:
+            legacy_ms = decode_execution_time_seconds(
+                job_result.get("execution_time_ms")
+            )
+            execution_time = legacy_ms / 1000.0 if legacy_ms is not None else 0.0
+        name = job_result.get("name") or parsed.get("name") or circuit_name
+        method = job_result.get("method") or parsed.get("method") or "unknown"
+        credits_used = job_result.get("credits_used", 0)
         job_metadata = {
-            "server_response": parsed_server_response,
+            "server_response": resolved_response,
             "status": job_result.get("status"),
             "circuit_id": job_result.get("circuit_id"),
             "experiment_id": job_result.get("experiment_id"),
             "experiment_name": job_result.get("experiment_name"),
             "compute_resource_name": job_result.get("compute_resource_name"),
             "server_response_id": job_result.get("server_response_id"),
-            "method": job_result.get("method"),
+            "method": method,
+            "credits_used": credits_used,
             "created_at": job_result.get("created_at"),
             "updated_at": job_result.get("updated_at"),
-            "device_name": device_name,
+            "device_name": device_name or job_result.get("device_name"),
+            "circuit_info": job_result.get("circuit_info")
+            or parsed.get("circuit_info")
+            or {
+                "name": name,
+                "qubits": parsed.get("num_qubits") or 0,
+                "depth": parsed.get("depth") or 0,
+            },
+            "timing": {
+                "created_at": job_result.get("created_at"),
+                "started_at": job_result.get("started_at"),
+                "completed_at": job_result.get("completed_at")
+                or job_result.get("updated_at"),
+            },
         }
-
-        # Add QPU-specific metadata if available
-        if qpu_metadata:
-            job_metadata["qpu_metadata"] = qpu_metadata
-
-        # Create JobResult object
+        response_metadata = dict(parsed["metadata"])
+        if parsed.get("job_id"):
+            response_metadata["job_id"] = parsed["job_id"]
+        if response_metadata:
+            job_metadata["qpu_metadata"] = response_metadata
+        metrics: dict[str, Any] = {
+            field: job_result.get(field)
+            if job_result.get(field) is not None
+            else parsed.get(field) or 0.0
+            for field in ("cpu_usage", "memory_usage", "gpu_memory_usage")
+        }
         return JobResult(
-            name=job_result.get("name", circuit_name),
+            name=name,
             counts=counts,
-            statevector=statevector,
-            message=message,
-            probabilities=probabilities,
-            density_matrix=density_matrix,
-            execution_time=job_execution_time,
-            shots=total_shots,
-            job_id=job_result.get("id"),
+            statevector=parsed["statevector"],
+            density_matrix=parsed["density_matrix"],
+            probabilities=parsed["probabilities"],
+            message=parsed["message"]
+            or job_result.get("message")
+            or "Job completed successfully",
+            execution_time=execution_time,
+            shots=sum(counts.values()) if counts else shots,
+            job_id=job_id,
             job_status=job_result.get("status"),
-            method=job_result.get("method"),
-            credits_used=job_result.get("credits_used", 0),
+            method=method,
+            credits_used=credits_used,
             job_metadata=job_metadata,
+            **metrics,
         )
 
     def submit_and_wait_for_results_qasm(
@@ -1522,7 +1295,7 @@ class JobManager:
         qasm_string_or_circuit: str | Circuit | IntermediateCircuitRepresentation,
         experiment_name: str = "Default Experiment",
         shots: int = 1024,
-        method: str = "statevector",
+        method: str | None = None,
         need_statevector: bool = False,
         need_density_matrix: bool = False,
         device_name: str = "QpiAI-QSV-Simulator",
@@ -1531,6 +1304,7 @@ class JobManager:
         overwrite: bool = False,
         use_events: bool = True,
         timeout: int = 300,
+        access_token: str | None = None,
     ) -> JobResult:
         """
         All-in-one QASM/Circuit submission that waits for completion and returns job results.
@@ -1549,8 +1323,7 @@ class JobManager:
             circuit_name (str): Circuit name (default: "circuit")
             compute_resource_id (str): Compute resource ID (optional)
             overwrite (bool): Whether to overwrite existing circuit with same name (default: False)
-            use_events (bool): Prefer SSE for real-time status updates, falling back to
-                               polling if SSE is disabled, unavailable, or fails (default: True)
+            use_events (bool): Whether to use SSE for real-time status updates (default: True)
             timeout (int): Maximum time to wait for completion in seconds (default: 300)
 
         Returns:
@@ -1565,94 +1338,101 @@ class JobManager:
         """
         import time
 
-        # Handle circuit or QASM string input
         if isinstance(qasm_string_or_circuit, str):
             qasm_string = qasm_string_or_circuit
         else:
-            # Convert Circuit or ICR to QASM string
             qasm_string = self._convert_circuit_to_qasm(qasm_string_or_circuit)
-
+        request = resolve_execution_request(
+            device_name,
+            method=method,
+            need_statevector=need_statevector,
+            need_density_matrix=need_density_matrix,
+        )
+        profile = request.device
+        method = profile.method
+        need_statevector = request.need_statevector
+        need_density_matrix = request.need_density_matrix
         sse_handler = (
             SSEResultHandler(device_name=device_name, timeout=timeout)
             if use_events and SSE_AVAILABLE
             else None
         )
-
-        submission_result = self.submit_qasm_job(
-            qasm_string=qasm_string,
-            experiment_name=experiment_name,
-            shots=shots,
-            method=method,
-            need_statevector=need_statevector,
-            need_density_matrix=need_density_matrix,
-            device_name=device_name,
-            circuit_name=circuit_name,
-            compute_resource_id=compute_resource_id,
-            overwrite=overwrite,
-        )
-        job_id = submission_result.get("job_id")
-        if not job_id:
-            raise JobSubmissionError("Job submission failed: no job ID returned")
-
-        start_time = time.time()
-        poll_interval = 2
-        if sse_handler:
-            sse_url = get_sse_url(job_id)
-            headers = self._get_auth_header()
-            if sse_handler.wait_for_events(sse_url, headers):
-                result = self.get_job_status(job_id)
-            else:
-                logger.warning(
-                    "SSE monitoring failed for job %s; falling back to polling: %s",
-                    job_id,
-                    sse_handler.get_error() or "no completion event received",
+        try:
+            submission_result = self.submit_qasm_job(
+                qasm_string=qasm_string,
+                experiment_name=experiment_name,
+                shots=shots,
+                method=method,
+                need_statevector=need_statevector,
+                need_density_matrix=need_density_matrix,
+                device_name=device_name,
+                circuit_name=circuit_name or "Circuit",
+                compute_resource_id=compute_resource_id,
+                overwrite=overwrite,
+            )
+            job_id = submission_result.get("job_id")
+            if not job_id:
+                raise JobSubmissionError(
+                    "Job submission failed because the server did not return a job ID. Retry the submission and contact support if this persists."
                 )
-                result = self._wait_with_polling(
+            start_time = time.time()
+            if use_events and sse_handler:
+                sse_url = get_sse_url(job_id)
+                headers = self._get_auth_header()
+                if sse_handler.wait_for_events(sse_url, headers):
+                    result = self.get_job_status(job_id)
+                else:
+                    logger.warning(
+                        "SSE monitoring failed; falling back to polling: %s",
+                        sse_handler.get_error() or "no completion event received",
+                    )
+                    poll_res = self._wait_with_polling(
+                        job_id,
+                        timeout,
+                        poll_interval=2,
+                        start_time=start_time,
+                        initial_poll_count=0,
+                    )
+                    result = poll_res.get("job_info") or self.get_job_status(job_id)
+            else:
+                poll_res = self._wait_with_polling(
                     job_id,
                     timeout,
-                    poll_interval=poll_interval,
+                    poll_interval=2,
                     start_time=start_time,
                     initial_poll_count=0,
-                )["job_info"]
-        else:
-            if use_events:
-                logger.warning(
-                    "SSE support is unavailable; falling back to polling for job %s",
-                    job_id,
                 )
-            result = self._wait_with_polling(
-                job_id,
-                timeout,
-                poll_interval=poll_interval,
-                start_time=start_time,
-                initial_poll_count=0,
-            )["job_info"]
-
-        if not result:
-            raise JobStatusError(job_id, Exception("Failed to retrieve job status"))
-
-        # Parse job results using helper method
-        job_result = self._parse_job_results(
-            result,
-            circuit_name,
-            shots,
-            device_name,
-            need_statevector=need_statevector,
-            need_density_matrix=need_density_matrix,
-        )
-        # Add submission parameters to metadata
-        if job_result.job_metadata is None:
-            job_result.job_metadata = {}
-        job_result.job_metadata["submission_params"] = {
-            "shots": shots,
-            "circuit_name": circuit_name,
-            "experiment_name": experiment_name,
-            "overwrite": overwrite,
-            "use_events": use_events,
-            "timeout": timeout,
-        }
-
-        return job_result
+                result = poll_res.get("job_info") or self.get_job_status(job_id)
+            if not result:
+                raise JobManagerError(
+                    f"Unable to retrieve the final status for job {job_id}. Retry the status check or call get_job_status(job_id) manually."
+                )
+            job_result = self._parse_job_results(
+                result,
+                circuit_name,
+                shots,
+                device_name,
+                need_statevector=need_statevector,
+                need_density_matrix=need_density_matrix,
+                job_id=job_id,
+            )
+            if job_result.job_metadata is None:
+                job_result.job_metadata = {}
+            job_result.job_metadata["submission_params"] = {
+                "shots": shots,
+                "circuit_name": circuit_name,
+                "experiment_name": experiment_name,
+                "overwrite": overwrite,
+                "use_events": use_events,
+                "timeout": timeout,
+            }
+            return job_result
+        except (JobManagerError, JobSubmissionError):
+            raise
+        except Exception as exc:
+            raise JobManagerError(
+                "Unable to monitor job completion. Retry the run or check the job later with get_job_status(job_id)."
+            ) from exc
 
     def _wait_with_polling(
         self,
@@ -1673,62 +1453,38 @@ class JobManager:
             initial_poll_count (int): Starting poll count
 
         Returns:
-            dict with at minimum {"status": "completed", "job_id": job_id}
+            Dict with at minimum {"status": "completed", "job_id": job_id}
         """
         try:
             poll_count = initial_poll_count
-
             while True:
                 poll_count += 1
                 elapsed_time = time.time() - start_time
-
                 if elapsed_time > timeout:
                     raise JobManagerError(
-                        f"Job {job_id} did not complete within {timeout} seconds (timeout)"
+                        f"Job {job_id} did not complete within {timeout} seconds."
                     )
-
-                # Check job status
                 job_info = self.get_job_status(job_id)
-
                 if not job_info:
-                    raise JobManagerError(f"Job {job_id} not found during polling")
-
+                    raise JobManagerError(
+                        f"Job {job_id} was not found while checking its status."
+                    )
                 current_status = job_info.get("status", "unknown")
-                logger.debug(
-                    f"Poll {poll_count}: Job {job_id} status = {current_status}"
-                )
-
-                # Check for completion (accept multiple success states)
+                logger.debug("Poll %s: job status = %s", poll_count, current_status)
                 if current_status and current_status.lower() in [
                     "completed",
                     "success",
                 ]:
-                    logger.info(
-                        f"Job {job_id} completed successfully after {elapsed_time:.1f}s"
-                    )
-                    result = {
+                    logger.info("Job completed successfully after %.1fs", elapsed_time)
+                    return {
                         "status": current_status,
                         "job_id": job_id,
                         "job_info": job_info,
                         "polling_checks": poll_count,
                     }
-                    return result
-                elif current_status and current_status.lower() == "failed":
-                    error_message = (
-                        job_info.get("error")
-                        or job_info.get("error_message")
-                        or "Unknown error"
-                    )
-                    # Include more details from job_info
-                    error_details = {
-                        "error": error_message,
-                        "job_id": job_id,
-                        "full_job_info": job_info,
-                    }
-                    raise JobManagerError(
-                        f"Job {job_id} failed: {error_message}\n\nFull details: {error_details}"
-                    )
-                elif not current_status or current_status.lower() not in [
+                if current_status and current_status.lower() == "failed":
+                    raise JobManagerError(f"Job {job_id} failed during execution.")
+                if not current_status or current_status.lower() not in [
                     "pending",
                     "running",
                     "scheduled",
@@ -1736,13 +1492,12 @@ class JobManager:
                     "queued",
                 ]:
                     raise JobManagerError(
-                        f"Job {job_id} in unexpected status: {current_status}"
+                        f"Job {job_id} entered an unexpected status: {current_status}."
                     )
-
-                # Wait before next check
                 time.sleep(poll_interval)
-
         except JobManagerError:
             raise
-        except Exception as e:
-            raise JobManagerError(f"Unexpected error during job polling: {e}")
+        except Exception as exc:
+            raise JobManagerError(
+                f"Unable to keep polling job {job_id}. Retry the status check manually with get_job_status(job_id)."
+            ) from exc

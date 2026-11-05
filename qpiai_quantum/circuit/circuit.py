@@ -14,31 +14,17 @@ if TYPE_CHECKING:
     from ..results.base_result import BaseQuantumResult
 
 
-def _map_device_name_to_method(device_name: str):
+def _map_device_name_to_method(device_name: str) -> str:
     """
-    Internal helper to map high-level device_name to (device, method).
+    Map a high-level device name to its execution method.
 
     Returns:
-        tuple of (device, method) where:
-          - device name is "QpiAI-QSV-Simulator", "QpiAI-QDM-Simulator", "QpiAI-QTN-Simulator", "QpiAI-Indus-1", "QpiAI-QSV-Lite", or "QpiAI-QDM-Lite"
-          - method is one of "statevector", "density_matrix", "tensor_network", or None (for qpu)
+        Execution method associated with the device, such as "statevector",
+        "density_matrix", "tensor_network", or "qpu".
     """
-    if device_name == "QpiAI-QSV-Simulator":
-        return "statevector"
-    elif device_name == "QpiAI-QDM-Simulator":
-        return "density_matrix"
-    elif device_name == "QpiAI-QTN-Simulator":
-        return "tensor_network"
-    elif device_name == "QpiAI-Indus-1":
-        return "qpu"
-    elif device_name == "QpiAI-QSV-Lite":
-        return "statevector_sampling"
-    elif device_name == "QpiAI-QDM-Lite":
-        return "density_matrix"
-    elif device_name == "QpiAI-QSV-Local":
-        return "statevector"
-    else:
-        return "statevector"
+    from ..jobmanager.backend import get_device_method
+
+    return get_device_method(device_name)
 
 
 class Circuit:
@@ -1042,44 +1028,38 @@ class Circuit:
         reverse_bits: bool = False,
         **kwargs,
     ) -> Union["JobResult", "BaseQuantumResult"]:
-        from ..jobmanager import ExecutionEngine, Backend as BackendEnum
+        """Execute the circuit with backend-aware result defaults.
 
-        if device_name not in [
-            "QpiAI-QSV-Simulator",
-            "QpiAI-QDM-Simulator",
-            "QpiAI-QTN-Simulator",
-            "QpiAI-Indus-1",
-            "QpiAI-QSV-Lite",
-            "QpiAI-QDM-Lite",
-            "QpiAI-QSV-Local",
-        ]:
-            raise ValueError(
-                f"Unsupported device name '{device_name}'. Supported devices are: "
-                f"['QpiAI-QSV-Simulator', 'QpiAI-QDM-Simulator', "
-                f"'QpiAI-QTN-Simulator', 'QpiAI-Indus-1', "
-                f"'QpiAI-QSV-Lite', 'QpiAI-QDM-Lite', 'QpiAI-QSV-Local']"
+        Devices are loaded from the QpiAI backend. Omitted result flags request
+        the device's configured default results (for example a density matrix on
+        QDM backends, and both statevector and density matrix on QTN). Explicit
+        boolean values take precedence, and requesting a result the device cannot
+        return raises ``ValueError``.
+        """
+        if "execution_kind" in kwargs or "result_transport" in kwargs:
+            raise TypeError(
+                "execution_kind and result_transport are not supported by this SDK"
             )
-        if (
-            device_name == "QpiAI-QDM-Simulator" or device_name == "QpiAI-QDM-Lite"
-        ) and need_statevector:
-            raise ValueError(
-                "QDM simulators return density matrices only. For a pure result, convert it with DensityMatrix(...).to_statevector()."
-            )
+        from ..jobmanager import ExecutionEngine
+        from ..jobmanager.backend import resolve_execution_request
 
-        if need_density_matrix is None:
-            need_density_matrix = device_name in {
-                "QpiAI-QDM-Simulator",
-                "QpiAI-QDM-Lite",
-                "QpiAI-QTN-Simulator",
-            }
-        if need_statevector is None:
-            need_statevector = device_name == "QpiAI-QTN-Simulator"
-
+        if "backend" in kwargs:
+            raise TypeError("backend is no longer supported. Pass device_name instead.")
+        request = resolve_execution_request(
+            device_name,
+            method=kwargs.pop("method", None),
+            need_statevector=need_statevector,
+            need_density_matrix=need_density_matrix,
+            access_token=kwargs.get("access_token"),
+        )
+        device = request.device
+        need_statevector = request.need_statevector
+        need_density_matrix = request.need_density_matrix
         if device_name == "QpiAI-QSV-Local":
             from ..authentication.user import get_user
 
             user = get_user()
-            if user is None or not user.name or not user.email:
+            if user is None or not user.name or (not user.email):
                 raise ValueError(
                     "Authentication required. Call QpiAIQuantumAuth.login(api_key) first."
                 )
@@ -1093,14 +1073,11 @@ class Circuit:
         circuit_name = kwargs.pop("circuit_name", None)
         overwrite = kwargs.pop("overwrite", True)
         timeout = kwargs.pop("timeout", 500)
-
-        method = _map_device_name_to_method(device_name)
-
+        method = device.method
         if circuit_name is None:
             import uuid
 
             circuit_name = f"{self.name}_{int(time.time())}_{uuid.uuid4().hex[:8]}"
-        method = kwargs.pop("method", method)
         device_name = kwargs.pop("device_name", device_name)
         job_result = ExecutionEngine.execute_circuit(
             circuit=self,
@@ -1119,7 +1096,6 @@ class Circuit:
             job_result.counts = {
                 bitstring[::-1]: count for bitstring, count in job_result.counts.items()
             }
-
         return job_result
 
     @staticmethod

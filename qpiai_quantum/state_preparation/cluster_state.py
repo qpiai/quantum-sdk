@@ -4,7 +4,6 @@ from ..algorithms.base import QuantumAlgorithm
 from qpiai_quantum.circuit import Circuit
 from qpiai_quantum.jobmanager.job_result import JobResult
 from qpiai_quantum.results.base_result import BaseQuantumResult
-from qpiai_quantum.jobmanager import Backend
 
 
 class ClusterStateGenerator(QuantumAlgorithm):
@@ -34,15 +33,10 @@ class ClusterStateGenerator(QuantumAlgorithm):
             raise ValueError(
                 f"Cluster state requires at least 2 qubits, got {num_qubits}."
             )
-
         super().__init__(
             num_qubits=num_qubits, name=f"Cluster State ({num_qubits} qubits)"
         )
-
-        self.description = (
-            f"1D Linear Cluster state with {num_qubits} qubits. "
-            f"Prepared using H gates followed by nearest-neighbor CZ gates."
-        )
+        self.description = f"1D Linear Cluster state with {num_qubits} qubits. Prepared using H gates followed by nearest-neighbor CZ gates."
 
     def build_circuit(self, measure: bool = True, **kwargs) -> Circuit:
         """
@@ -56,19 +50,13 @@ class ClusterStateGenerator(QuantumAlgorithm):
             Circuit: The constructed quantum circuit.
         """
         self.circuit = Circuit(self.num_qubits, self.num_qubits)
-
-        # Step 1: Prepare all qubits in |+> state
         for i in range(self.num_qubits):
             self.circuit.h(i)
-
-        # Step 2: Apply CZ gates between adjacent qubits
         for i in range(self.num_qubits - 1):
             self.circuit.cz(i, i + 1)
-
         if measure:
             for i in range(self.num_qubits):
                 self.circuit.measure(i, i)
-
         return self.circuit
 
     def get_expected_outcomes(self) -> dict[str, float]:
@@ -81,12 +69,10 @@ class ClusterStateGenerator(QuantumAlgorithm):
         """
         num_states = 2**self.num_qubits
         prob = 1.0 / num_states
-
         expected = {}
         for i in range(num_states):
             state = bin(i)[2:].zfill(self.num_qubits)
             expected[state] = prob
-
         return expected
 
     def verify_entanglement(
@@ -103,57 +89,39 @@ class ClusterStateGenerator(QuantumAlgorithm):
         """
         counts = result.get()["counts"]
         total_shots = sum(counts.values())
-
-        # Check if the distribution is roughly uniform
         num_observed_states = len(counts)
         num_expected_states = 2**self.num_qubits
-
-        # If we see significantly fewer states than expected, it's likely not a cluster state
-        # (Threshold depends on shots, but for a small number of qubits and reasonable shots,
-        # we should see most states).
         coverage = num_observed_states / num_expected_states
-
         if coverage < threshold:
             return False
-
-        # Check that no single state is way too frequent
         max_prob = max(counts.values()) / total_shots
-        if max_prob > (2.0 / num_expected_states) + 0.1:  # Allow some variance
+        if max_prob > 2.0 / num_expected_states + 0.1:
             return False
-
         return True
 
     def get_circuit_depth(self) -> int:
         """
         Get the depth of the cluster state circuit.
         """
-        # H layer + CZ layers (CZs can be partially parallelized but linear is O(n))
-        # 1 (H) + (num_qubits - 1) (CZ)
         return self.num_qubits
 
     @staticmethod
     def compare_different_sizes(
         qubit_range: list[int] = [2, 3, 4],
         shots: int = 1024,
-        backend: Backend | None = None,
+        device_name: str = "QpiAI-QSV-Simulator",
     ) -> dict[int, BaseQuantumResult]:
         """
         Compare cluster states of different sizes.
         """
         results = {}
-
-        if backend is None:
-            backend = Backend.STATEVECTOR_SIMULATOR_CPU
-
         for n in qubit_range:
             cluster = ClusterStateGenerator(num_qubits=n)
-            result = cluster.run(shots=shots, backend=backend)
+            result = cluster.run(shots=shots, device_name=device_name)
             results[n] = result
-
             print(
                 f"Cluster State ({n} qubits) - Observed states: {len(result.get()['counts'])}"
             )
-
         return results
 
 

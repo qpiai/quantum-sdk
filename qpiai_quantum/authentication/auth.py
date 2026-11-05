@@ -15,6 +15,7 @@ from .user import (
     get_active_api_key,
     get_user,
     normalize_api_key,
+    resolve_api_key,
     set_user,
 )
 
@@ -26,7 +27,9 @@ class QpiAIQuantumAuth:
             raise APIKeyInvalidError()
 
     @staticmethod
-    def login(api_key: str | None) -> str:
+    def login(api_key: str | None = None) -> str:
+        if api_key is None:
+            api_key = resolve_api_key()
         if api_key is None:
             raise APIKeyInvalidError()
         if not isinstance(api_key, str):

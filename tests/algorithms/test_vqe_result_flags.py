@@ -6,6 +6,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.usefixtures("backend_devices")
+
 from qpiai_quantum.algorithms.opt.solvers.vqe import VQESolver
 from qpiai_quantum.circuit import Circuit
 
@@ -62,7 +64,7 @@ def evaluate_once(objective, initial_point, **kwargs):
         ("QpiAI-Indus-1", {}, False, False),
         (
             "QpiAI-QSV-Simulator",
-            {"method": "statevector_sampling", "need_statevector": False},
+            {"estimator": "sampled", "need_statevector": False},
             False,
             False,
         ),
@@ -84,7 +86,7 @@ def test_flags_reach_execution_for_objective_fresh_energy_and_final_counts(
             hamiltonian=Hamiltonian(axis), device_name=device, shots=100, **options
         )
 
-    exact = result.metadata["method"] == "statevector"
+    exact = result.metadata["estimator"] == "exact"
     assert execute.call_count == (2 if exact else 3)
     for call in execute.call_args_list:
         assert call.kwargs["need_statevector"] is expected_statevector
@@ -114,7 +116,7 @@ def test_qdm_rejects_explicit_statevector_without_submitting_job():
         patch.object(solver, "_optimize_parameters", side_effect=evaluate_once),
         patch("qpiai_quantum.jobmanager.ExecutionEngine.execute_circuit") as execute,
     ):
-        with pytest.raises(ValueError, match="QDM simulators return density matrices"):
+        with pytest.raises(ValueError, match="cannot return a statevector"):
             solver.run(
                 hamiltonian=Hamiltonian("Z"),
                 device_name="QpiAI-QDM-Simulator",

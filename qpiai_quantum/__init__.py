@@ -29,7 +29,7 @@ __description__ = (
 from .authentication import QpiAIQuantumAuth
 from .circuit import Circuit, ClassicalRegister, QuantumRegister
 from .exceptions import BaseError
-from .jobmanager import Backend, JobManager, JobResult
+from .jobmanager import JobManager, JobResult
 
 # Quantum algorithms
 from .algorithms import (
@@ -68,7 +68,6 @@ __all__ = [
     "Circuit",
     "ClassicalRegister",
     "QuantumRegister",
-    "Backend",
     "JobManager",
     "JobResult",
     "QpiAIQuantumAuth",

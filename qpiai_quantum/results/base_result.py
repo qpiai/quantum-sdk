@@ -59,7 +59,7 @@ class BaseQuantumResult(ABC):
                           Returns None if statevector not available (e.g., for hardware runs)
 
         Example:
-            >>> result = circuit.run(backend=Backend.STATEVECTOR_SIMULATOR_CPU)
+            >>> result = circuit.run(device_name="QpiAI-QSV-Simulator")
             >>> result.statevector
             [[0.707+0j], [0+0j], [0+0j], [0.707+0j]]
         """

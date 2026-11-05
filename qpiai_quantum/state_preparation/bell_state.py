@@ -3,7 +3,6 @@ from ..algorithms.base import QuantumAlgorithm
 from qpiai_quantum.circuit import Circuit
 from qpiai_quantum.jobmanager.job_result import JobResult
 from qpiai_quantum.results.base_result import BaseQuantumResult
-from qpiai_quantum.jobmanager import Backend
 
 
 class BellStateGenerator(QuantumAlgorithm):
@@ -25,9 +24,7 @@ class BellStateGenerator(QuantumAlgorithm):
             raise ValueError(
                 f"Invalid state_type '{state_type}'. Choose from: {self.VALID_STATES}"
             )
-
         super().__init__(num_qubits=2, name=f"Bell State {state_type}")
-
         self.state_type = state_type
         self.description = self._get_state_description()
 
@@ -44,7 +41,6 @@ class BellStateGenerator(QuantumAlgorithm):
     def build_circuit(self, measure: bool = True, **kwargs) -> Circuit:
         num_classical = 2 if measure else 0
         self.circuit = Circuit(self.num_qubits, num_classical)
-
         if self.state_type == "|Ψ+>":
             self._build_psi_plus()
         elif self.state_type == "|Ψ->":
@@ -53,32 +49,30 @@ class BellStateGenerator(QuantumAlgorithm):
             self._build_phi_plus()
         elif self.state_type == "|Φ->":
             self._build_phi_minus()
-
         if measure:
             self.circuit.measure(0, 0)
             self.circuit.measure(1, 1)
-
         return self.circuit
 
     def _build_psi_plus(self):
-        self.circuit.h(0)  # type: ignore
-        self.circuit.cx(0, 1)  # type: ignore
+        self.circuit.h(0)
+        self.circuit.cx(0, 1)
 
     def _build_psi_minus(self):
-        self.circuit.x(0)  # type: ignore
-        self.circuit.h(0)  # type: ignore
-        self.circuit.cx(0, 1)  # type: ignore
+        self.circuit.x(0)
+        self.circuit.h(0)
+        self.circuit.cx(0, 1)
 
     def _build_phi_plus(self):
-        self.circuit.x(1)  # type: ignore
-        self.circuit.h(0)  # type: ignore
-        self.circuit.cx(0, 1)  # type: ignore
+        self.circuit.x(1)
+        self.circuit.h(0)
+        self.circuit.cx(0, 1)
 
     def _build_phi_minus(self):
-        self.circuit.x(1)  # type: ignore
-        self.circuit.x(0)  # type: ignore
-        self.circuit.h(0)  # type: ignore
-        self.circuit.cx(0, 1)  # type: ignore
+        self.circuit.x(1)
+        self.circuit.x(0)
+        self.circuit.h(0)
+        self.circuit.cx(0, 1)
 
     def get_expected_outcomes(self) -> dict[str, float]:
         outcomes = {
@@ -94,22 +88,17 @@ class BellStateGenerator(QuantumAlgorithm):
     ) -> bool:
         counts = result.get_counts() or {}
         total_shots = sum(counts.values())
-
         expected = self.get_expected_outcomes()
-
         for state, expected_prob in expected.items():
             measured_count = counts.get(state, 0)
             measured_prob = measured_count / total_shots
-
             if measured_prob < threshold:
                 return False
-
         for state, count in counts.items():
             if state not in expected:
                 unexpected_prob = count / total_shots
-                if unexpected_prob > (1 - 2 * threshold):
+                if unexpected_prob > 1 - 2 * threshold:
                     return False
-
         return True
 
     @staticmethod
@@ -120,23 +109,18 @@ class BellStateGenerator(QuantumAlgorithm):
         }
 
     @staticmethod
-    def compare_all_bell_states(shots: int = 1024, backend: Backend | None = None):
-        from qpiai_quantum.jobmanager import Backend
-
-        if backend is None:
-            backend = Backend.STATEVECTOR_SIMULATOR_CPU
-
+    def compare_all_bell_states(
+        shots: int = 1024, device_name: str = "QpiAI-QSV-Simulator"
+    ) -> dict[str, BaseQuantumResult]:
+        """Compare Bell-state measurements using the selected device."""
         results = {}
-
         for state_name in BellStateGenerator.VALID_STATES:
             bell = BellStateGenerator(state_name)
-            result = bell.run(shots=shots, backend=backend)
+            result = bell.run(shots=shots, device_name=device_name)
             results[state_name] = result
-
             print(f"\n{state_name}:")
             print(f"  Counts: {result.get()['counts']}")
             print(f"  Entangled: {bell.verify_entanglement(result)}")
-
         return results
 
 

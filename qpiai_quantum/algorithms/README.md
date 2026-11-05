@@ -4,6 +4,28 @@ A comprehensive collection of modular quantum algorithm implementations built on
 
 ## Available Algorithms
 
+### Execution API migration
+
+Select devices with `device_name` instead of the removed `Backend` enum or
+`backend=` argument. `list_devices()` and `DeviceRegistry.refresh()` discover
+the devices available to the authenticated user. The local simulator remains
+available without a device-list network request.
+
+```python
+from qpiai_quantum.jobmanager import list_devices
+
+devices = list_devices()
+result = circuit.run(device_name="QpiAI-QSV-Simulator")
+result = vqe.run(device_name="QpiAI-QSV-Simulator", estimator="sampled")
+```
+
+VQE's `estimator="auto"` selects exact energy evaluation for a statevector
+device and sampled evaluation otherwise. Use `"sampled"` to estimate energy
+from counts, or `"exact"` to require statevector support. The execution
+`method`, when supplied, must agree with the device profile. Explicit output
+flags override profile defaults; unavailable outputs fail before job submission.
+Execution-kind selection and transport diagnostic overrides are not exposed.
+
 ### Custom variational circuit parameters
 
 Custom QAOA and VQE circuits keep numeric gate angles fixed unless explicitly
@@ -295,12 +317,11 @@ print(qasm_code)
 
 ### Execution
 ```python
-from qpiai_quantum.executor import Backend
 
 # Execute on specific backend
-result = qft.execute(
+result = qft.run(
     shots=1024,
-    backend=Backend.STATEVECTOR_SIMULATOR_CPU
+    device_name="QpiAI-QSV-Simulator"
 )
 
 # Or use the convenient run() method
@@ -345,14 +366,13 @@ circuit.cx(4, 5)
 ### Custom Backend Configuration
 
 ```python
-from qpiai_quantum.executor import Backend
 from qpiai_quantum.algorithms import GroverSearch
 
 grover = GroverSearch(num_qubits=3, target="101")
 
 # Use different backends
-result_cpu = grover.run(backend=Backend.STATEVECTOR_SIMULATOR_CPU)
-result_gpu = grover.run(backend=Backend.STATEVECTOR_SIMULATOR_GPU)
+result_cpu = grover.run(device_name="QpiAI-QSV-Simulator")
+result_local = grover.run(device_name="QpiAI-QSV-Local")
 ```
 
 ### Batch Execution

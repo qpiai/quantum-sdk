@@ -12,6 +12,9 @@ from qpiai_quantum.algorithms.opt.solvers.vqe import VQESolver
 from qpiai_quantum.circuit import Circuit
 
 
+pytestmark = pytest.mark.usefixtures("backend_devices")
+
+
 class Hamiltonian:
     def __init__(self, terms: list[tuple[list[tuple[int, str]], float]]) -> None:
         self.terms = terms
@@ -37,6 +40,9 @@ def evaluate_once(
 def test_run_preserves_declared_width_and_solver_reuse(
     method: str, constant: bool
 ) -> None:
+    device_name = (
+        "QpiAI-QDM-Simulator" if method == "density_matrix" else "QpiAI-QSV-Simulator"
+    )
     factory_widths: list[int] = []
 
     def ansatz_factory(n_qubits: int) -> Circuit:
@@ -60,14 +66,22 @@ def test_run_preserves_declared_width_and_solver_reuse(
         patch.object(solver, "_optimize_parameters", side_effect=evaluate_once),
         patch.object(Circuit, "run", autospec=True, side_effect=execute),
     ):
-        first = solver.run(hamiltonian=first_hamiltonian, method=method, shots=64)
+        first = solver.run(
+            hamiltonian=first_hamiltonian,
+            device_name=device_name,
+            method=method,
+            shots=64,
+        )
         assert first.optimal_energy == pytest.approx(2.5 if constant else 1.0)
         assert first.bitstring == "100"
         assert solver.num_qubits == 3
 
         # A later Hamiltonian may use a previously unmentioned qubit.
         second = solver.run(
-            hamiltonian=Hamiltonian([([(2, "Z")], 1.0)]), method=method, shots=64
+            hamiltonian=Hamiltonian([([(2, "Z")], 1.0)]),
+            device_name=device_name,
+            method=method,
+            shots=64,
         )
         assert second.optimal_energy == pytest.approx(-1.0)
 
@@ -93,7 +107,7 @@ def test_builtin_ansatz_keeps_declared_width_for_partial_hamiltonian() -> None:
     ):
         result = solver.run(
             hamiltonian=Hamiltonian([([(0, "Z")], 1.0)]),
-            method="density_matrix",
+            device_name="QpiAI-QDM-Simulator",
             shots=64,
         )
 
@@ -113,7 +127,8 @@ def test_hamiltonian_outside_declared_register_fails_before_execution() -> None:
             ValueError, match="Hamiltonian requires 3 qubits.*declared.*2"
         ):
             solver.run(
-                hamiltonian=Hamiltonian([([(2, "Z")], 1.0)]), method="density_matrix"
+                hamiltonian=Hamiltonian([([(2, "Z")], 1.0)]),
+                device_name="QpiAI-QDM-Simulator",
             )
     optimize.assert_not_called()
     execute.assert_not_called()
@@ -136,7 +151,7 @@ def test_custom_ansatz_width_must_match_declared_register(
             if entrypoint == "run":
                 solver.run(
                     hamiltonian=Hamiltonian([([(2, "Z")], 1.0)]),
-                    method="density_matrix",
+                    device_name="QpiAI-QDM-Simulator",
                 )
             elif entrypoint == "build_circuit":
                 solver.build_circuit()

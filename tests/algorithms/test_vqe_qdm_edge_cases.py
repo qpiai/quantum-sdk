@@ -10,6 +10,9 @@ import pytest
 
 from qpiai_quantum.algorithms.opt.solvers.vqe import VQESolver
 from qpiai_quantum.circuit import Circuit
+from qpiai_quantum.algorithms.opt import parameterize
+
+pytestmark = pytest.mark.usefixtures("backend_devices")
 
 
 class Hamiltonian:
@@ -120,6 +123,7 @@ def test_list_initial_point_returns_parameters_when_initial_is_best(
     ansatz = Circuit(1)
     if initial_point:
         ansatz.ry(0, 0.0)
+        parameterize(ansatz, 0)
     else:
         ansatz.x(0)
     solver = VQESolver(
@@ -158,6 +162,7 @@ def test_integer_initial_parameters_do_not_truncate_adam_gradients(
 ) -> None:
     ansatz = Circuit(1)
     ansatz.ry(0, 0.0)
+    parameterize(ansatz, 0)
     solver = VQESolver(
         n_qubits=1,
         ansatz=lambda _: ansatz,

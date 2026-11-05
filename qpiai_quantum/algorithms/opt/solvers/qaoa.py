@@ -213,8 +213,8 @@ class QAOASolver(QuantumAlgorithm):
         if (
             isinstance(gradient_step, bool)
             or not isinstance(gradient_step, int | float)
-            or not np.isfinite(gradient_step)
-            or gradient_step <= 0
+            or (not np.isfinite(gradient_step))
+            or (gradient_step <= 0)
         ):
             raise ValueError("gradient_step must be a positive finite number")
         if not isinstance(layers, int) or isinstance(layers, bool) or layers < 1:
@@ -249,12 +249,12 @@ class QAOASolver(QuantumAlgorithm):
             raise ValueError(f"Unknown ansatz type: {ansatz}")
         if isinstance(mixer, str) and mixer not in {"x", "xy"}:
             raise ValueError("mixer must be x, xy, or a mixer factory")
-        if not isinstance(mixer, str) and not callable(mixer):
+        if not isinstance(mixer, str) and (not callable(mixer)):
             raise TypeError("mixer must be x, xy, or a mixer factory")
         if (
             initial_state is not None
-            and not isinstance(initial_state, Circuit)
-            and not callable(initial_state)
+            and (not isinstance(initial_state, Circuit))
+            and (not callable(initial_state))
         ):
             raise TypeError("initial_state must be a Circuit or factory")
         if warm_start is not None:
@@ -264,14 +264,14 @@ class QAOASolver(QuantumAlgorithm):
                 raise ValueError(
                     "warm_start supplies both initial_state and mixer; configure them separately to override"
                 )
-            initial_state, mixer = warm_start.initial_state, warm_start.mixer
+            initial_state, mixer = (warm_start.initial_state, warm_start.mixer)
         if ansatz not in (None, "standard") and (
             initial_state is not None or mixer != "x"
         ):
             raise ValueError(
                 "initial_state and mixer components require the standard ansatz"
             )
-        if aggregation is not None and not callable(aggregation):
+        if aggregation is not None and (not callable(aggregation)):
             raise TypeError("aggregation must be callable or None")
         if not callable(gradient_method) and gradient_method not in {
             "finite_difference",
@@ -284,7 +284,6 @@ class QAOASolver(QuantumAlgorithm):
             raise ValueError(
                 "parameter_shift requires the ordinary expectation objective"
             )
-
         n_qubits = problem.n_qubits if problem and hasattr(problem, "n_qubits") else 1
         super().__init__(num_qubits=n_qubits, name=name)
         self.layers = layers
@@ -320,7 +319,6 @@ class QAOASolver(QuantumAlgorithm):
         """
         if self.problem is None:
             raise ValueError("Problem not set. Call run() with a problem first.")
-
         ansatz = self._get_ansatz()
         self.num_qubits = self.problem.n_qubits
         self.circuit = self._build_circuit(ansatz, parameters)
@@ -335,12 +333,9 @@ class QAOASolver(QuantumAlgorithm):
         """
         if self.problem is None:
             raise ValueError("Problem must be set before getting ansatz")
-
         if not hasattr(self.problem, "n_qubits"):
             raise ValueError("Problem must have n_qubits attribute")
-
         n_qubits = self.problem.n_qubits
-
         if self.ansatz == "standard" or self.ansatz is None:
             ansatz = standard_qaoa_ansatz(
                 n_qubits=n_qubits,
@@ -350,7 +345,6 @@ class QAOASolver(QuantumAlgorithm):
                 initial_state=self.initial_state,
             )
         elif self.ansatz == "hardware_efficient":
-            # Use hardware-efficient ansatz as alternative
             ansatz = hardware_efficient_ansatz(
                 n_qubits=n_qubits, depth=self.layers, entanglement="linear"
             )
@@ -358,16 +352,12 @@ class QAOASolver(QuantumAlgorithm):
             ansatz = self.ansatz(n_qubits, self.layers)
         else:
             raise ValueError(f"Unknown ansatz type: {self.ansatz}")
-
         if not isinstance(ansatz, Circuit):
             raise ValueError("Ansatz must be a Circuit object")
-
         if not hasattr(ansatz, "icr") or not ansatz.icr:
             raise ValueError("Ansatz circuit must have ICR representation")
-
         if not hasattr(ansatz.icr, "evolve"):
             raise ValueError("Ansatz circuit must have valid ICR evolution operations")
-
         return ansatz
 
     def _build_circuit(
@@ -405,40 +395,31 @@ class QAOASolver(QuantumAlgorithm):
         """
         if not result or not result.counts:
             raise ValueError("Invalid execution result")
-
         counts = {k: int(v) for k, v in result.counts.items()}
-
         if self.problem is None:
             raise ValueError("Problem not set")
-
         if not hasattr(self.problem, "get_hamiltonian_terms"):
             raise ValueError("Problem must have get_hamiltonian_terms method")
-
         terms = self.problem.get_hamiltonian_terms()
         if terms:
             max_qubit_idx = max((qi for ops, _ in terms for qi, _ in ops), default=0)
             expected_n_qubits = max_qubit_idx + 1
         else:
             expected_n_qubits = 1
-
-        # Pad bitstrings to expected length
         padded_counts = {}
         for bitstr, count in counts.items():
             if len(bitstr) < expected_n_qubits:
                 bitstr = bitstr.zfill(expected_n_qubits)
             padded_counts[bitstr] = count
         counts = padded_counts
-
         total_shots = sum(counts.values())
         if total_shots == 0:
             raise ValueError("No measurements recorded")
-
         expectation = 0.0
         for ops, coeff in terms:
             if not ops:
                 expectation += coeff
                 continue
-
             term_exp = 0.0
             for bitstr, count in counts.items():
                 eigenvalue = 1.0
@@ -457,14 +438,12 @@ class QAOASolver(QuantumAlgorithm):
                         raise ValueError(f"Unknown Pauli operator: {op_name}")
                 term_exp += eigenvalue * count
             expectation += coeff * term_exp / total_shots
-
         return float(expectation)
 
     def _bitstring_energy(self, bitstring: str) -> float:
         """Evaluate a measured bitstring against the diagonal cost Hamiltonian."""
         if self.problem is None:
             raise ValueError("Problem not set")
-
         normalized = str(bitstring).replace(" ", "")
         if not normalized or any(bit not in {"0", "1"} for bit in normalized):
             raise ValueError(f"Invalid measured bitstring: {bitstring!r}")
@@ -473,7 +452,6 @@ class QAOASolver(QuantumAlgorithm):
                 f"Measured bitstring {bitstring!r} exceeds {self.num_qubits} qubits"
             )
         normalized = normalized.zfill(self.num_qubits)
-
         energy = 0.0
         for ops, coeff in self.problem.get_hamiltonian_terms():
             eigenvalue = 1.0
@@ -495,7 +473,6 @@ class QAOASolver(QuantumAlgorithm):
         """Select the lowest-energy feasible sample and report the mode separately."""
         if not counts:
             raise ValueError("QAOA execution returned no measurement counts")
-
         normalized_counts: dict[str, int] = {}
         for raw_bitstring, raw_count in counts.items():
             bitstring = str(raw_bitstring).replace(" ", "").zfill(self.num_qubits)
@@ -509,10 +486,8 @@ class QAOASolver(QuantumAlgorithm):
             if count == 0:
                 continue
             normalized_counts[bitstring] = normalized_counts.get(bitstring, 0) + count
-
         if sum(normalized_counts.values()) <= 0:
             raise ValueError("QAOA execution returned zero total measurement shots")
-
         sampled_energies = {
             bitstring: self._bitstring_energy(bitstring)
             for bitstring in normalized_counts
@@ -521,7 +496,6 @@ class QAOASolver(QuantumAlgorithm):
             normalized_counts,
             key=lambda bitstring: (-normalized_counts[bitstring], bitstring),
         )
-
         feasible: list[str] = []
         for bitstring in normalized_counts:
             solution = (
@@ -535,7 +509,6 @@ class QAOASolver(QuantumAlgorithm):
                 is_valid = True
             if is_valid:
                 feasible.append(bitstring)
-
         candidates = feasible or list(normalized_counts)
         best = min(
             candidates,
@@ -545,7 +518,7 @@ class QAOASolver(QuantumAlgorithm):
                 bitstring,
             ),
         )
-        return best, most_probable, sampled_energies
+        return (best, most_probable, sampled_energies)
 
     def _resolved_gradient_method(self) -> str | Gradient:
         """Resolve and validate the configured differentiation strategy.
@@ -555,21 +528,12 @@ class QAOASolver(QuantumAlgorithm):
         budget, or relative execution cost when making its choice.
         """
         method = self.gradient_method
-        # Built-in standard circuits supply the gate-to-parameter annotations
-        # needed to sum gate-wise derivatives for shared, weighted angles.
-        # Custom circuit and mixer factories do not provide that guarantee.
         supports_shift = self.ansatz in (None, "standard") and (
             isinstance(self.mixer, str)
             or isinstance(self.mixer, XMixer | XYMixer)
             or isinstance(getattr(self.mixer, "__self__", None), WarmStart)
         )
         if method == "auto":
-            # Prefer the exact gate-shift rule only for the ordinary expectation.
-            # CVaR and arbitrary aggregations need not obey that rule, so use
-            # central differences for them. This fallback does not guarantee
-            # a smooth objective or a stable estimate with finite shots.
-            # Exact differentiation also does not mean noise-free estimation:
-            # gate shifts can require more executions than finite differences.
             return (
                 "parameter_shift"
                 if supports_shift and self.aggregation is None
@@ -674,11 +638,7 @@ class QAOASolver(QuantumAlgorithm):
             Execution result with measurement counts
         """
         actual_shots = shots if shots is not None else self.shots
-
-        # Set the circuit on this instance for base class run() to use
         self.circuit = circuit
-
-        # Use provided method/device_name or defaults
         actual_method = (
             method if method is not None else getattr(self, "method", "statevector")
         )
@@ -687,22 +647,18 @@ class QAOASolver(QuantumAlgorithm):
             if device_name is not None
             else getattr(self, "device_name", "QpiAI-QSV-Local")
         )
-
-        # Extract run parameters from kwargs
-        run_kwargs = {
+        run_kwargs: dict[str, Any] = {
             "shots": actual_shots,
             "method": actual_method,
             "device_name": actual_device_name,
         }
-
-        # Add other valid run parameters
-        valid_run_params = ["experiment_name", "reverse_bits"]
+        valid_run_params = ["experiment_name", "reverse_bits", "access_token"]
         for param in valid_run_params:
             if param in kwargs:
                 run_kwargs[param] = kwargs[param]
-
-        # Call parent class run() method
-        return super().run(**run_kwargs)  # type: ignore
+        run_kwargs.update(getattr(self, "_execution_options", {}))
+        run_kwargs.update({"need_statevector": False, "need_density_matrix": False})
+        return super().run(**run_kwargs)
 
     def _print_optimization_info(self, n_params: int, optimizer_name: str):
         """Print detailed information about the optimization before it starts."""
@@ -714,8 +670,6 @@ class QAOASolver(QuantumAlgorithm):
         print(f"QAOA Layers:      {self.layers}")
         print(f"Max Iterations:   {self.max_iterations}")
         print(f"Shots per eval:   {self.shots}")
-
-        # Calculate expected circuit executions
         GRADIENT_FREE_OPTIMIZERS = {
             "cobyla",
             "nelder_mead",
@@ -725,19 +679,16 @@ class QAOASolver(QuantumAlgorithm):
             "genetic_algorithm",
             "particle_swarm",
         }
-
         if optimizer_name.lower() in GRADIENT_FREE_OPTIMIZERS:
             if optimizer_name.lower() == "cobyla":
                 base_per_iteration = n_params + 2
                 base_evaluations = self.max_iterations * base_per_iteration
-
                 if self.max_iterations <= 5:
                     buffer = 10 + self.max_iterations * 2
                 elif self.max_iterations <= 20:
                     buffer = 20 + self.max_iterations
                 else:
                     buffer = 50
-
                 expected_evals = base_evaluations + buffer
                 print(
                     f"Expected Evals:   ~{expected_evals} (may stop early if converged)"
@@ -745,7 +696,6 @@ class QAOASolver(QuantumAlgorithm):
                 print(
                     f"  |-- {self.max_iterations} iterations x {base_per_iteration} evals/iter + {buffer} buffer"
                 )
-
             elif optimizer_name.lower() == "spsa":
                 expected_evals = 1 + self.max_iterations * 3
                 print(
@@ -754,12 +704,10 @@ class QAOASolver(QuantumAlgorithm):
                 print(
                     f"  |-- 1 initial + {self.max_iterations} iterations x 3 evals/iter"
                 )
-
             else:
                 expected_evals = self.max_iterations
                 print(f"Expected Evals:   ~{expected_evals}")
         elif self._resolved_gradient_method() == "finite_difference":
-            # Gradient-based optimizers
             expected_evals = self.max_iterations * (2 * n_params + 1) + 1
             print(f"Expected Evals:   ~{expected_evals} (GRADIENT-BASED)")
             print(
@@ -768,12 +716,11 @@ class QAOASolver(QuantumAlgorithm):
         else:
             strategy = self._resolved_gradient_method()
             print(
-                f"Gradient method:  {strategy if isinstance(strategy, str) else 'custom'}"
+                f"Gradient method:  {(strategy if isinstance(strategy, str) else 'custom')}"
             )
             print(
                 "Circuit evaluations and shots are recorded for every gradient probe."
             )
-
         print("\nNote: Optimizer may stop earlier if convergence criteria are met.")
         print("=" * 70 + "\n")
 
@@ -808,7 +755,6 @@ class QAOASolver(QuantumAlgorithm):
                     "message": "Fixed circuit evaluated; no adjustable angles",
                 },
             )
-
         GRADIENT_FREE_OPTIMIZERS = {
             "COBYLA",
             "SPSA",
@@ -819,29 +765,22 @@ class QAOASolver(QuantumAlgorithm):
             "NELDER_MEAD",
             "POWELL",
         }
-
         GRADIENT_BASED_OPTIMIZERS = {"ADAM", "GRADIENT_DESCENT", "L_BFGS_B"}
-
         optimizer_name = self.optimizer.upper()
-
         if self.verbose:
             self._print_optimization_info(n_params, optimizer_name)
-
         if optimizer_name in GRADIENT_FREE_OPTIMIZERS:
             if optimizer_name == "COBYLA":
                 base_per_iteration = n_params + 2
                 base_evaluations = self.max_iterations * base_per_iteration
-
                 if self.max_iterations <= 5:
                     buffer = 10 + self.max_iterations * 2
                 elif self.max_iterations <= 20:
                     buffer = 20 + self.max_iterations
                 else:
                     buffer = 50
-
                 optimizer_kwargs = dict(kwargs)
                 maxfun = optimizer_kwargs.pop("maxfun", base_evaluations + buffer)
-
                 return cobyla_optimize(
                     objective=objective,
                     initial_point=initial_point,
@@ -850,7 +789,6 @@ class QAOASolver(QuantumAlgorithm):
                     rhobeg=optimizer_kwargs.pop("rhobeg", 1.0),
                     **optimizer_kwargs,
                 )
-
             elif optimizer_name == "NELDER_MEAD":
                 return nelder_mead_optimize(
                     objective=objective,
@@ -858,7 +796,6 @@ class QAOASolver(QuantumAlgorithm):
                     maxiter=self.max_iterations,
                     **kwargs,
                 )
-
             elif optimizer_name == "SLSQP":
                 return slsqp_optimize(
                     objective=objective,
@@ -866,7 +803,6 @@ class QAOASolver(QuantumAlgorithm):
                     maxiter=self.max_iterations,
                     **kwargs,
                 )
-
             elif optimizer_name == "SPSA":
                 return spsa_optimize(
                     objective=objective,
@@ -874,7 +810,6 @@ class QAOASolver(QuantumAlgorithm):
                     maxiter=self.max_iterations,
                     **kwargs,
                 )
-
             elif optimizer_name == "POWELL":
                 return powell_optimize(
                     objective=objective,
@@ -882,7 +817,6 @@ class QAOASolver(QuantumAlgorithm):
                     maxiter=self.max_iterations,
                     **kwargs,
                 )
-
             elif optimizer_name == "GENETIC_ALGORITHM":
                 optimizer_kwargs = dict(kwargs)
                 bounds = optimizer_kwargs.pop("bounds", [(0, 2 * np.pi)] * n_params)
@@ -892,7 +826,6 @@ class QAOASolver(QuantumAlgorithm):
                     maxiter=self.max_iterations,
                     **optimizer_kwargs,
                 )
-
             elif optimizer_name == "PARTICLE_SWARM":
                 optimizer_kwargs = dict(kwargs)
                 bounds = optimizer_kwargs.pop("bounds", [(0, 2 * np.pi)] * n_params)
@@ -902,7 +835,6 @@ class QAOASolver(QuantumAlgorithm):
                     maxiter=self.max_iterations,
                     **optimizer_kwargs,
                 )
-
             elif optimizer_name == "DIFFERENTIAL_EVOLUTION":
                 optimizer_kwargs = dict(kwargs)
                 bounds = optimizer_kwargs.pop("bounds", [(0, 2 * np.pi)] * n_params)
@@ -912,7 +844,6 @@ class QAOASolver(QuantumAlgorithm):
                     maxiter=self.max_iterations,
                     **optimizer_kwargs,
                 )
-
         elif optimizer_name in GRADIENT_BASED_OPTIMIZERS:
 
             def gradient_wrapper(params: np.ndarray) -> np.ndarray:
@@ -926,7 +857,6 @@ class QAOASolver(QuantumAlgorithm):
                     maxiter=self.max_iterations,
                     **kwargs,
                 )
-
             elif optimizer_name == "GRADIENT_DESCENT":
                 return gradient_descent_optimize(
                     objective=objective,
@@ -935,7 +865,6 @@ class QAOASolver(QuantumAlgorithm):
                     maxiter=self.max_iterations,
                     **kwargs,
                 )
-
             elif optimizer_name == "L_BFGS_B":
                 return l_bfgs_b_optimize(
                     objective=objective,
@@ -944,18 +873,11 @@ class QAOASolver(QuantumAlgorithm):
                     maxiter=self.max_iterations,
                     **kwargs,
                 )
-
             raise ValueError(
                 f"Gradient-based optimizer '{optimizer_name}' is not fully implemented yet"
             )
-
         raise ValueError(
-            f"Unknown optimizer: '{self.optimizer}'\\n\\n"
-            f"Supported gradient-free optimizers:\\n"
-            f"  {', '.join(sorted(o.lower() for o in GRADIENT_FREE_OPTIMIZERS))}\\n\\n"
-            f"Supported gradient-based optimizers:\\n"
-            f"  {', '.join(sorted(o.lower() for o in GRADIENT_BASED_OPTIMIZERS))}\\n\\n"
-            f"Example: QAOASolver(layers=2, optimizer='cobyla')"
+            f"Unknown optimizer: '{self.optimizer}'\\n\\nSupported gradient-free optimizers:\\n  {', '.join(sorted(o.lower() for o in GRADIENT_FREE_OPTIMIZERS))}\\n\\nSupported gradient-based optimizers:\\n  {', '.join(sorted(o.lower() for o in GRADIENT_BASED_OPTIMIZERS))}\\n\\nExample: QAOASolver(layers=2, optimizer='cobyla')"
         )
 
     def _count_parameters(self) -> int:
@@ -970,7 +892,6 @@ class QAOASolver(QuantumAlgorithm):
             self._executor = JobManager()
         return self._executor
 
-    # Fluent API methods for method chaining
     def with_layers(self, layers: int):
         """Set QAOA layers and return self for method chaining."""
         if not isinstance(layers, int) or isinstance(layers, bool) or layers < 1:
@@ -1016,7 +937,7 @@ class QAOASolver(QuantumAlgorithm):
         """Set mixer type and return self for method chaining."""
         if isinstance(mixer, str) and mixer not in {"x", "xy"}:
             raise ValueError("mixer must be x, xy, or a mixer factory")
-        if not isinstance(mixer, str) and not callable(mixer):
+        if not isinstance(mixer, str) and (not callable(mixer)):
             raise TypeError("mixer must be x, xy, or a mixer factory")
         if self.ansatz not in (None, "standard") and mixer != "x":
             raise ValueError("mixer components require the standard ansatz")
@@ -1052,13 +973,11 @@ class QAOASolver(QuantumAlgorithm):
             initial = np.asarray(self.initial_params, dtype=float)
             if initial.ndim != 1 or initial.size != n_params:
                 raise ValueError(
-                    f"initial_params has {initial.size} parameters "
-                    f"but ansatz requires {n_params} parameters"
+                    f"initial_params has {initial.size} parameters but ansatz requires {n_params} parameters"
                 )
             if not np.all(np.isfinite(initial)):
                 raise ValueError("initial_params must contain only finite values")
             starts.append(initial.copy())
-
         while len(starts) < self.num_starts:
             starts.append(rng.uniform(0.0, np.pi / 2.0, n_params))
         return starts
@@ -1070,8 +989,7 @@ class QAOASolver(QuantumAlgorithm):
             shot_limited_evaluations = self.max_shots // shots - 1
             if shot_limited_evaluations < 1:
                 raise ValueError(
-                    "max_shots must cover at least one objective evaluation and "
-                    "one final sampling execution"
+                    "max_shots must cover at least one objective evaluation and one final sampling execution"
                 )
             limit = (
                 shot_limited_evaluations
@@ -1084,8 +1002,8 @@ class QAOASolver(QuantumAlgorithm):
         self,
         shots: int = 1024,
         experiment_name: str = "Default Experiment",
-        need_statevector: bool = True,
-        need_density_matrix: bool = False,
+        need_statevector: bool | None = None,
+        need_density_matrix: bool | None = None,
         device_name: str = "QpiAI-QSV-Local",
         reverse_bits: bool = False,
         **kwargs,
@@ -1105,47 +1023,41 @@ class QAOASolver(QuantumAlgorithm):
         Returns:
             QAOAResult: Optimization results including solution and quality metrics
         """
-        # Map high-level device_name to low-level (device, method)
-        from qpiai_quantum.circuit.circuit import _map_device_name_to_method
+        if "execution_kind" in kwargs or "result_transport" in kwargs:
+            raise TypeError(
+                "execution_kind and result_transport are not supported by this SDK"
+            )
+        from qpiai_quantum.jobmanager.backend import get_device_info
 
-        method = _map_device_name_to_method(device_name)
-
+        profile = get_device_info(device_name, kwargs.get("access_token"))
+        method = profile.method
+        self._execution_options = {
+            key: kwargs.pop(key) for key in ("access_token",) if key in kwargs
+        }
         if "problem" in kwargs:
             self.problem = kwargs.pop("problem")
-
         if self.problem is None:
             raise ValueError(
                 "QAOA requires a problem parameter (either in __init__ or run)"
             )
-
         if not isinstance(shots, int) or isinstance(shots, bool) or shots < 1:
             raise ValueError("shots must be a positive integer")
         self.shots = shots
-
-        # Validate problem
         if not hasattr(self.problem, "n_qubits"):
             raise ValueError("Problem must have n_qubits attribute")
-
         if not hasattr(self.problem, "get_hamiltonian_terms"):
             raise ValueError("Problem must have get_hamiltonian_terms() method")
-
         self.num_qubits = self.problem.n_qubits
-
-        # Get and validate ansatz
         effective_gradient_method = self._resolved_gradient_method()
         ansatz = self._get_ansatz()
-
-        # Count parameters (2 per layer for standard QAOA: gamma and beta)
         n_params = count_parameters(ansatz)
-
         rng = np.random.default_rng(self.seed)
         self._gradient_rng = np.random.default_rng(self.seed)
         start_points = self._make_start_points(n_params, rng)
         evaluation_limit = self._objective_evaluation_limit(shots)
         evaluation_callback = kwargs.pop("evaluation_callback", None)
-        if evaluation_callback is not None and not callable(evaluation_callback):
+        if evaluation_callback is not None and (not callable(evaluation_callback)):
             raise TypeError("evaluation_callback must be callable")
-
         evaluations: list[QAOAEvaluation] = []
         start_results: list[QAOAStartResult] = []
         optimization_results: list[tuple[np.ndarray, float, dict[str, Any]]] = []
@@ -1155,11 +1067,9 @@ class QAOASolver(QuantumAlgorithm):
             "GENETIC_ALGORITHM",
             "PARTICLE_SWARM",
         }
-
         for start_index, initial_point in enumerate(start_points):
             if evaluation_limit is not None and len(evaluations) >= evaluation_limit:
                 break
-
             first_evaluation = len(evaluations)
             progress = OptimizationProgress()
             start_evaluation_limit: int | None = None
@@ -1180,7 +1090,8 @@ class QAOASolver(QuantumAlgorithm):
                 if (
                     evaluation_limit is not None
                     and len(evaluations) >= evaluation_limit
-                ) or (current_limit is not None and len(evaluations) >= current_limit):
+                    or (current_limit is not None and len(evaluations) >= current_limit)
+                ):
                     raise _EvaluationBudgetExceeded
                 parameter_array = np.asarray(theta, dtype=float)
                 circuit = (
@@ -1231,7 +1142,6 @@ class QAOASolver(QuantumAlgorithm):
                 ):
                     raise ValueError("maxfun must be a positive integer")
                 optimizer_kwargs["maxfun"] = min(requested, start_allowance)
-
             try:
                 opt_result = self._optimize_parameters(
                     objective=objective,
@@ -1268,7 +1178,6 @@ class QAOASolver(QuantumAlgorithm):
                         "termination_reason": "evaluation_budget",
                     },
                 )
-
             params_for_start, energy_for_start, info_for_start = opt_result
             info_for_start = dict(info_for_start)
             info_for_start.setdefault("callback_reports", progress.callback_reports)
@@ -1277,7 +1186,7 @@ class QAOASolver(QuantumAlgorithm):
                 if (
                     not info_for_start.get("success", False)
                     and start_evaluation_limit is not None
-                    and len(evaluations) >= start_evaluation_limit
+                    and (len(evaluations) >= start_evaluation_limit)
                 ):
                     reason = "evaluation_budget"
                 elif (
@@ -1296,8 +1205,7 @@ class QAOASolver(QuantumAlgorithm):
                 np.isfinite(params_for_start)
             ):
                 raise ValueError(
-                    "optimizer returned parameters with an invalid shape or "
-                    "non-finite values"
+                    "optimizer returned parameters with an invalid shape or non-finite values"
                 )
             if not np.isfinite(energy_for_start):
                 raise ValueError("optimizer returned a non-finite energy")
@@ -1320,11 +1228,7 @@ class QAOASolver(QuantumAlgorithm):
                     raise RuntimeError("candidate is missing its expectation estimate")
                 expectation_for_start = float(selected.expectation)
                 info_for_start["expectation_at_optimum"] = expectation_for_start
-            normalized_result = (
-                params_for_start,
-                energy_for_start,
-                info_for_start,
-            )
+            normalized_result = (params_for_start, energy_for_start, info_for_start)
             optimization_results.append(normalized_result)
             start_results.append(
                 QAOAStartResult(
@@ -1341,10 +1245,8 @@ class QAOASolver(QuantumAlgorithm):
                     callback_reports=int(info_for_start["callback_reports"]),
                 )
             )
-
         if not optimization_results:
             raise RuntimeError("QAOA did not perform any objective evaluations")
-
         best_start_index = min(
             range(len(optimization_results)),
             key=lambda index: float(optimization_results[index][1]),
@@ -1357,8 +1259,6 @@ class QAOASolver(QuantumAlgorithm):
             else None
         )
         actual_nfev = len(evaluations)
-
-        # Print completion summary
         if self.verbose:
             print("\n" + "=" * 70)
             print("QAOA OPTIMIZATION COMPLETED")
@@ -1370,12 +1270,8 @@ class QAOASolver(QuantumAlgorithm):
             if self.aggregation is not None:
                 print(f"Expectation:         {opt_info['expectation_at_optimum']:.6f}")
             print(f"Success:             {opt_info.get('success', False)}")
-
             print(f"Termination:         {opt_info['termination_reason']}")
-
             print("=" * 70 + "\n")
-
-        # Get final measurement results
         final_circuit = self._build_circuit(ansatz, best_params)
         final_result = self._execute_circuit(
             final_circuit,
@@ -1385,36 +1281,27 @@ class QAOASolver(QuantumAlgorithm):
             experiment_name=experiment_name,
             reverse_bits=reverse_bits,
         )
-
         final_counts = (
             {k: int(v) for k, v in final_result.counts.items()}
             if final_result.counts
             else {}
         )
-
         best_bitstring, most_probable_bitstring, sampled_energies = (
             self._select_best_sample(final_counts)
         )
-
-        # Decode solution using problem's decoder
         if hasattr(self.problem, "decode_solution"):
             solution = self.problem.decode_solution(best_bitstring)
         else:
             solution = best_bitstring
-
-        # Validate solution
         if hasattr(self.problem, "validate_solution"):
             is_valid, validation_message = self.problem.validate_solution(solution)
         else:
             is_valid = True
             validation_message = "Validation not available"
-
-        # Compute quality metrics
         if hasattr(self.problem, "compute_solution_quality"):
             quality_metrics = self.problem.compute_solution_quality(solution)
         else:
             quality_metrics = {}
-
         return QAOAResult(
             optimal_parameters=best_params.tolist(),
             optimal_energy=float(opt_info.get("expectation_at_optimum", best_energy)),
@@ -1489,7 +1376,7 @@ class QAOASolver(QuantumAlgorithm):
                 "converged_early": any(
                     item.termination_reason == "converged"
                     and item.iterations is not None
-                    and item.iterations < self.max_iterations
+                    and (item.iterations < self.max_iterations)
                     for item in start_results
                 ),
                 "energy_semantics": "estimated_expectation",

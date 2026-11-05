@@ -2,6 +2,7 @@ import numpy as np
 
 
 class GateMatrices:
+    @staticmethod
     def RZ(theta):
         return np.array(
             [
@@ -11,6 +12,7 @@ class GateMatrices:
             dtype=np.complex128,
         )
 
+    @staticmethod
     def RY(theta):
         return np.array(
             [

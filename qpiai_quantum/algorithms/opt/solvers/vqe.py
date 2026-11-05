@@ -1,12 +1,12 @@
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, Literal
 from collections.abc import Callable
 import numpy as np
 import warnings
 from dataclasses import dataclass
-from qpiai_quantum.results.base_result import BaseQuantumResult
 from ....circuit import Circuit
 from ....jobmanager import JobManager
 from ....jobmanager.job_result import JobResult
+from ....results.base_result import BaseQuantumResult
 from ...base import QuantumAlgorithm
 from ..ansatz.hardware_efficient import hardware_efficient_ansatz, two_local_ansatz
 from ..ansatz.standard import standard_vqe_ansatz
@@ -119,7 +119,7 @@ class VQESolver(QuantumAlgorithm):
         ...     shots=10000,
         ...     experiment_name="Default Experiment",
         ...     method="statevector",
-        ...     device_name="QpiAI-QSV-Local",
+        ...     device_name="QpiAI-QSV-Simulator",
         ... )
         >>>
         >>> print(f"Ground state energy: {result.optimal_energy}")
@@ -141,8 +141,8 @@ class VQESolver(QuantumAlgorithm):
         if (
             isinstance(gradient_step, bool)
             or not isinstance(gradient_step, int | float)
-            or not np.isfinite(gradient_step)
-            or gradient_step <= 0
+            or (not np.isfinite(gradient_step))
+            or (gradient_step <= 0)
         ):
             raise ValueError("gradient_step must be a positive finite number")
         self.gradient_step = float(gradient_step)
@@ -184,7 +184,6 @@ class VQESolver(QuantumAlgorithm):
             Validated ansatz circuit
         """
         if self.ansatz == "standard" or self.ansatz is None:
-            # Use standard VQE ansatz (default)
             ansatz = standard_vqe_ansatz(
                 self.num_qubits, layers=2, entanglement="linear"
             )
@@ -196,23 +195,16 @@ class VQESolver(QuantumAlgorithm):
             ansatz = self.ansatz(self.num_qubits)
         else:
             raise ValueError(f"Unknown ansatz type: {self.ansatz}")
-
         if not isinstance(ansatz, Circuit):
             raise ValueError("Ansatz must be a Circuit object")
-
         if ansatz.num_qubits != self.num_qubits:
             raise ValueError(
-                f"Ansatz has {ansatz.num_qubits} qubits, but the declared VQE register "
-                f"has {self.num_qubits}. Return an ansatz with the declared width "
-                "or update n_qubits to match."
+                f"Ansatz has {ansatz.num_qubits} qubits, but the declared VQE register has {self.num_qubits}. Return an ansatz with the declared width or update n_qubits to match."
             )
-
         if not hasattr(ansatz, "icr") or not ansatz.icr:
             raise ValueError("Ansatz circuit must have ICR representation")
-
         if not hasattr(ansatz.icr, "evolve"):
             raise ValueError("Ansatz circuit must have valid ICR evolution operations")
-
         return ansatz
 
     def _build_circuit(
@@ -245,7 +237,6 @@ class VQESolver(QuantumAlgorithm):
         for ops, coeff in terms:
             if not ops:
                 continue
-
             placed = False
             for group in groups:
                 basis_dict, group_terms = group
@@ -263,11 +254,9 @@ class VQESolver(QuantumAlgorithm):
                     group_terms.append((ops, coeff))
                     placed = True
                     break
-
             if not placed:
                 basis_dict = {q: op for q, op in ops if op != "I"}
                 groups.append((basis_dict, [(ops, coeff)]))
-
         return groups
 
     def _compute_statevector_expectation(
@@ -280,29 +269,24 @@ class VQESolver(QuantumAlgorithm):
         """
         state = np.asarray(statevector, dtype=complex).reshape(-1)
         dimension = state.size
-        if dimension == 0 or dimension & (dimension - 1):
+        if dimension == 0 or dimension & dimension - 1:
             raise ValueError("Statevector length must be a non-zero power of two")
-
         norm = float(np.linalg.norm(state))
-        if not np.isfinite(norm) or not np.isclose(norm, 1.0, rtol=1e-7, atol=1e-9):
+        if not np.isfinite(norm) or not np.isclose(norm, 1.0, rtol=1e-07, atol=1e-09):
             raise ValueError("Statevector must be normalized before energy evaluation")
         state /= norm
         n_qubits = dimension.bit_length() - 1
-
         expectation = 0.0
         for ops, coeff in terms:
             if not ops:
                 expectation += coeff
                 continue
-
             evolved_state = state.copy()
             for qubit_idx, op_name in ops:
                 if op_name == "I":
                     continue
-
                 shape = (2 ** (n_qubits - 1 - qubit_idx), 2, 2**qubit_idx)
                 state_tensor = evolved_state.reshape(shape)
-
                 if op_name == "Z":
                     state_tensor[:, 1, :] *= -1
                     evolved_state = state_tensor.reshape(-1)
@@ -316,10 +300,8 @@ class VQESolver(QuantumAlgorithm):
                     evolved_state = new_tensor.reshape(-1)
                 else:
                     raise ValueError(f"Unknown Pauli operator: {op_name}")
-
             term_val = np.vdot(state, evolved_state).real
             expectation += coeff * term_val
-
         return expectation
 
     def _compute_counts_expectation(
@@ -332,9 +314,7 @@ class VQESolver(QuantumAlgorithm):
         return expectation
 
     def _compute_counts_energy_statistics(
-        self,
-        counts: dict[str, int],
-        terms: list[tuple[list[tuple[int, str]], float]],
+        self, counts: dict[str, int], terms: list[tuple[list[tuple[int, str]], float]]
     ) -> tuple[float, float | None]:
         """Return a sampled energy mean and its standard error.
 
@@ -343,24 +323,20 @@ class VQESolver(QuantumAlgorithm):
         variable preserves covariance between terms measured from the same shots.
         """
         if not counts:
-            return 0.0, None
-
+            return (0.0, None)
         total_shots = sum(counts.values())
         if total_shots == 0:
-            return 0.0, None
-
+            return (0.0, None)
         max_qubit_idx = 0
         for ops, _ in terms:
             for qi, _ in ops:
                 max_qubit_idx = max(max_qubit_idx, qi)
         expected_n_qubits = max_qubit_idx + 1
-
         padded_counts: dict[str, int] = {}
         for bitstr, count in counts.items():
             if len(bitstr) < expected_n_qubits:
                 bitstr = bitstr.zfill(expected_n_qubits)
             padded_counts[bitstr] = padded_counts.get(bitstr, 0) + count
-
         observed_energies: dict[str, float] = {}
         for bitstr in padded_counts:
             shot_energy = 0.0
@@ -368,7 +344,6 @@ class VQESolver(QuantumAlgorithm):
                 if not ops:
                     shot_energy += coeff
                     continue
-
                 eigenvalue = 1.0
                 for qubit_idx, op_name in ops:
                     if op_name == "I":
@@ -377,25 +352,25 @@ class VQESolver(QuantumAlgorithm):
                     eigenvalue *= 1.0 if bit == 0 else -1.0
                 shot_energy += coeff * eigenvalue
             observed_energies[bitstr] = shot_energy
-
         expectation = (
             sum(
-                padded_counts[bitstr] * energy
-                for bitstr, energy in observed_energies.items()
+                (
+                    padded_counts[bitstr] * energy
+                    for bitstr, energy in observed_energies.items()
+                )
             )
             / total_shots
         )
-
         if total_shots < 2:
-            return expectation, None
-
+            return (expectation, None)
         sample_variance = sum(
-            padded_counts[bitstr] * (energy - expectation) ** 2
-            for bitstr, energy in observed_energies.items()
+            (
+                padded_counts[bitstr] * (energy - expectation) ** 2
+                for bitstr, energy in observed_energies.items()
+            )
         ) / (total_shots - 1)
         standard_error = float(np.sqrt(max(sample_variance, 0.0) / total_shots))
-
-        return expectation, standard_error
+        return (expectation, standard_error)
 
     def _compute_expectation(self, result: BaseQuantumResult) -> float:
         """
@@ -403,40 +378,31 @@ class VQESolver(QuantumAlgorithm):
         """
         if not result or not result.counts:
             raise ValueError("Invalid execution result")
-
         counts = result.counts
-
         if self.hamiltonian is None:
             raise ValueError("Hamiltonian not set")
-
         if not hasattr(self.hamiltonian, "get_hamiltonian_terms"):
             raise ValueError("Hamiltonian must have get_hamiltonian_terms method")
-
         terms = self.hamiltonian.get_hamiltonian_terms()
         if terms:
             max_qubit_idx = max((qi for ops, _ in terms for qi, _ in ops), default=0)
             expected_n_qubits = max_qubit_idx + 1
         else:
             expected_n_qubits = 1
-
-        # NOTE: Pad bitstrings to expected length
         padded_counts = {}
         for bitstr, count in counts.items():
             if len(bitstr) < expected_n_qubits:
                 bitstr = bitstr.zfill(expected_n_qubits)
             padded_counts[bitstr] = count
         counts = padded_counts
-
         total_shots = sum(counts.values())
         if total_shots == 0:
             raise ValueError("No measurements recorded")
-
         expectation = 0.0
         for ops, coeff in terms:
             if not ops:
                 expectation += coeff
                 continue
-
             term_exp = 0.0
             for bitstr, count in counts.items():
                 eigenvalue = 1.0
@@ -454,7 +420,6 @@ class VQESolver(QuantumAlgorithm):
                         raise ValueError(f"Unknown Pauli operator: {op_name}")
                 term_exp += eigenvalue * count
             expectation += coeff * term_exp / total_shots
-
         return expectation
 
     def _compute_gradient(
@@ -495,7 +460,7 @@ class VQESolver(QuantumAlgorithm):
         Args:
             circuit: Circuit to execute
             method: Simulation method ('statevector', 'density_matrix', 'tensor_network')
-            device_name: Device name ('QpiAI-QSV-Local', 'QpiAI-QSV-Simulator', 'QpiAI-QDM-Simulator', 'QpiAI-QTN-Simulator', etc)
+            device_name: Device name ('QpiAI-QSV-Simulator', 'QpiAI-QDM-Simulator', 'QpiAI-QTN-Simulator', etc)
             shots: Number of measurement shots
             **kwargs: Additional parameters passed to run()
 
@@ -503,40 +468,26 @@ class VQESolver(QuantumAlgorithm):
             Execution result with measurement counts
         """
         actual_shots = shots if shots is not None else self.shots
-
-        # Set the circuit on this instance for base class run() to use
         self.circuit = circuit
-
-        # Use provided method/device_name or defaults
         actual_method = (
             method if method is not None else getattr(self, "method", "statevector")
         )
         actual_device_name = (
             device_name
             if device_name is not None
-            else getattr(self, "device_name", "QpiAI-QSV-Local")
+            else getattr(self, "device_name", "QpiAI-QSV-Simulator")
         )
-
-        # Extract run parameters from kwargs
-        run_kwargs = {
+        run_kwargs: dict[str, Any] = {
             "shots": actual_shots,
             "method": actual_method,
             "device_name": actual_device_name,
         }
-
-        # Add other valid run parameters
-        valid_run_params = [
-            "experiment_name",
-            "reverse_bits",
-            "need_statevector",
-            "need_density_matrix",
-        ]
+        valid_run_params = ["experiment_name", "reverse_bits"]
         for param in valid_run_params:
             if param in kwargs:
                 run_kwargs[param] = kwargs[param]
-
-        # Call parent class run() method (QuantumAlgorithm.run())
-        return super().run(**run_kwargs)  # type: ignore
+        run_kwargs.update(getattr(self, "_requested_outputs", {}))
+        return super().run(**run_kwargs)
 
     def _print_optimization_info(self, n_params: int, optimizer_name: str):
         """
@@ -553,8 +504,6 @@ class VQESolver(QuantumAlgorithm):
         print(f"Parameters:       {n_params}")
         print(f"Max Iterations:   {self.max_iterations}")
         print(f"Shots per eval:   {self.shots}")
-
-        # Calculate expected circuit executions based on optimizer type
         GRADIENT_FREE_OPTIMIZERS = {
             "cobyla",
             "nelder_mead",
@@ -564,87 +513,75 @@ class VQESolver(QuantumAlgorithm):
             "genetic_algorithm",
             "particle_swarm",
         }
-
         if optimizer_name in GRADIENT_FREE_OPTIMIZERS:
             if optimizer_name == "cobyla":
-                # COBYLA typically does (n_params + 2) evaluations per iteration
                 base_per_iteration = n_params + 2
                 base_evaluations = self.max_iterations * base_per_iteration
-
                 if self.max_iterations <= 5:
                     buffer = 10 + self.max_iterations * 2
                 elif self.max_iterations <= 20:
                     buffer = 20 + self.max_iterations
                 else:
                     buffer = 50
-
                 expected_evals = base_evaluations + buffer
                 print(
                     f"Expected Evals:   ~{expected_evals} (may stop early if converged)"
                 )
                 print(
-                    f"  |-- {self.max_iterations} iterations x {base_per_iteration} evals/iter + {buffer} buffer"
+                    f"  └─ {self.max_iterations} iterations × {base_per_iteration} evals/iter + {buffer} buffer"
                 )
-
             elif optimizer_name == "spsa":
-                # SPSA does 3 evaluations per iteration (baseline + 2 perturbed)
                 expected_evals = 1 + self.max_iterations * 3
                 print(
                     f"Expected Evals:   ~{expected_evals} (may stop early if converged)"
                 )
                 print(
-                    f"  |-- 1 initial + {self.max_iterations} iterations x 3 evals/iter"
+                    f"  └─ 1 initial + {self.max_iterations} iterations × 3 evals/iter"
                 )
-
             elif optimizer_name == "nelder_mead":
-                # Nelder-Mead is unpredictable but typically 1-3 per iteration
                 expected_evals_min = self.max_iterations
                 expected_evals_max = self.max_iterations * 3
                 print(
                     f"Expected Evals:   {expected_evals_min}-{expected_evals_max} (variable)"
                 )
-
             elif optimizer_name in [
                 "differential_evolution",
                 "genetic_algorithm",
                 "particle_swarm",
             ]:
-                # Population-based methods
                 if optimizer_name == "differential_evolution":
-                    popsize = 15  # default
+                    popsize = 15
                     expected_evals = popsize * n_params * self.max_iterations
                     print(f"Expected Evals:   ~{expected_evals}")
                     print(
-                        f"  |-- Population-based: {popsize} x {n_params} x {self.max_iterations}"
+                        f"  └─ Population-based: {popsize} × {n_params} × {self.max_iterations}"
                     )
                 elif optimizer_name == "genetic_algorithm":
-                    popsize = 50  # default
+                    popsize = 50
                     expected_evals = popsize * self.max_iterations
                     print(f"Expected Evals:   ~{expected_evals}")
                     print(
-                        f"  |-- Population: {popsize} x {self.max_iterations} generations"
+                        f"  └─ Population: {popsize} × {self.max_iterations} generations"
                     )
-                else:  # particle_swarm
-                    n_particles = 30  # default
+                else:
+                    n_particles = 30
                     expected_evals = n_particles * self.max_iterations
                     print(f"Expected Evals:   ~{expected_evals}")
                     print(
-                        f"  |-- Swarm: {n_particles} particles x {self.max_iterations} iterations"
+                        f"  └─ Swarm: {n_particles} particles × {self.max_iterations} iterations"
                     )
             else:
                 expected_evals = self.max_iterations
                 print(f"Expected Evals:   ~{expected_evals}")
         else:
-            # Gradient-based optimizers
             expected_evals = self.max_iterations * (2 * n_params + 1) + 1
             print(f"Expected Evals:   ~{expected_evals} (GRADIENT-BASED - EXPENSIVE!)")
             print(
-                f"  |-- {self.max_iterations} iter x (2x{n_params} for gradient + 1 for energy) + 1 final"
+                f"  └─ {self.max_iterations} iter × (2×{n_params} for gradient + 1 for energy) + 1 final"
             )
             print(
                 "  ⚠️  Consider gradient-free optimizers (cobyla, spsa) for fewer evaluations"
             )
-
         print("\nNote: Optimizer may stop earlier if convergence criteria are met.")
         print("=" * 70 + "\n")
 
@@ -688,7 +625,6 @@ class VQESolver(QuantumAlgorithm):
                     "message": "Fixed circuit evaluated; no adjustable angles",
                 },
             )
-
         GRADIENT_FREE_OPTIMIZERS = {
             "cobyla",
             "spsa",
@@ -698,38 +634,30 @@ class VQESolver(QuantumAlgorithm):
             "nelder_mead",
             "powell",
         }
-
         GRADIENT_BASED_OPTIMIZERS = {"adam", "gradient_descent", "l_bfgs_b"}
-
         optimizer_name = self.optimizer.lower()
-
         if self.verbose:
             self._print_optimization_info(n_params, optimizer_name)
-
         if optimizer_name in GRADIENT_FREE_OPTIMIZERS:
             if optimizer_name == "cobyla":
                 base_per_iteration = n_params + 2
                 base_evaluations = self.max_iterations * base_per_iteration
-
                 if self.max_iterations <= 5:
                     buffer = 10 + self.max_iterations * 2
                 elif self.max_iterations <= 20:
                     buffer = 20 + self.max_iterations
                 else:
                     buffer = 50
-
                 maxfun = base_evaluations + buffer
-
                 return cobyla_optimize(
                     objective=objective,
                     initial_point=initial_point,
                     maxiter=self.max_iterations,
                     maxfun=maxfun,
                     rhobeg=1.0,
-                    rhoend=1e-4,
+                    rhoend=0.0001,
                     **kwargs,
                 )
-
             elif optimizer_name == "nelder_mead":
                 return nelder_mead_optimize(
                     objective=objective,
@@ -737,7 +665,6 @@ class VQESolver(QuantumAlgorithm):
                     maxiter=self.max_iterations,
                     **kwargs,
                 )
-
             elif optimizer_name == "powell":
                 return powell_optimize(
                     objective=objective,
@@ -745,7 +672,6 @@ class VQESolver(QuantumAlgorithm):
                     maxiter=self.max_iterations,
                     **kwargs,
                 )
-
             elif optimizer_name == "slsqp":
                 return slsqp_optimize(
                     objective=objective,
@@ -753,7 +679,6 @@ class VQESolver(QuantumAlgorithm):
                     maxiter=self.max_iterations,
                     **kwargs,
                 )
-
             elif optimizer_name == "spsa":
                 return spsa_optimize(
                     objective=objective,
@@ -761,28 +686,22 @@ class VQESolver(QuantumAlgorithm):
                     maxiter=self.max_iterations,
                     **kwargs,
                 )
-
             elif optimizer_name == "genetic_algorithm":
                 bounds = kwargs.get("bounds", [(0, 2 * np.pi)] * n_params)
-
                 return genetic_algorithm_optimize(
                     objective=objective,
                     bounds=bounds,
                     maxiter=self.max_iterations,
                     **kwargs,
                 )
-
             elif optimizer_name == "particle_swarm":
                 bounds = kwargs.get("bounds", [(0, 2 * np.pi)] * n_params)
-
                 return particle_swarm_optimize(
                     objective=objective,
                     bounds=bounds,
                     maxiter=self.max_iterations,
                     **kwargs,
                 )
-
-        # ========== GRADIENT-BASED OPTIMIZERS ==========
         elif optimizer_name in GRADIENT_BASED_OPTIMIZERS:
 
             def gradient_wrapper(params: np.ndarray) -> np.ndarray:
@@ -796,7 +715,6 @@ class VQESolver(QuantumAlgorithm):
                     maxiter=self.max_iterations,
                     **kwargs,
                 )
-
             elif optimizer_name == "gradient_descent":
                 return gradient_descent_optimize(
                     objective=objective,
@@ -805,7 +723,6 @@ class VQESolver(QuantumAlgorithm):
                     maxiter=self.max_iterations,
                     **kwargs,
                 )
-
             elif optimizer_name == "l_bfgs_b":
                 return l_bfgs_b_optimize(
                     objective=objective,
@@ -814,20 +731,11 @@ class VQESolver(QuantumAlgorithm):
                     maxiter=self.max_iterations,
                     **kwargs,
                 )
-
-            # If we reach here, the optimizer is in GRADIENT_BASED_OPTIMIZERS but not handled
             raise ValueError(
                 f"Gradient-based optimizer '{optimizer_name}' is not fully implemented yet"
             )
-
-        # Unknown optimizer
         raise ValueError(
-            f"Unknown optimizer: '{self.optimizer}'\n\n"
-            f"Supported gradient-free optimizers:\n"
-            f"  {', '.join(sorted(GRADIENT_FREE_OPTIMIZERS))}\n\n"
-            f"Supported gradient-based optimizers:\n"
-            f"  {', '.join(sorted(GRADIENT_BASED_OPTIMIZERS))}\n\n"
-            f"Example: VQESolver(n_qubits=2, optimizer='cobyla')"
+            f"Unknown optimizer: '{self.optimizer}'\n\nSupported gradient-free optimizers:\n  {', '.join(sorted(GRADIENT_FREE_OPTIMIZERS))}\n\nSupported gradient-based optimizers:\n  {', '.join(sorted(GRADIENT_BASED_OPTIMIZERS))}\n\nExample: VQESolver(n_qubits=2, optimizer='cobyla')"
         )
 
     @staticmethod
@@ -846,9 +754,10 @@ class VQESolver(QuantumAlgorithm):
             for term, _ in hamiltonian.get_hamiltonian_terms():
                 for qubit_idx, _ in term:
                     n_qubits = max(n_qubits, qubit_idx + 1)
-        except (AttributeError, TypeError) as e:
-            raise ValueError(f"Invalid Hamiltonian structure: {str(e)}")
-
+        except (AttributeError, TypeError) as exc:
+            raise ValueError(
+                "Invalid Hamiltonian structure. Provide a Hamiltonian with get_hamiltonian_terms() that returns qubit/operator terms."
+            ) from exc
         return n_qubits
 
     @property
@@ -921,9 +830,10 @@ class VQESolver(QuantumAlgorithm):
         shots: int = 1024,
         experiment_name: str = "Default Experiment",
         need_statevector: bool | None = None,
-        need_density_matrix: bool = False,
+        need_density_matrix: bool | None = None,
         device_name: str = "QpiAI-QSV-Local",
         reverse_bits: bool = False,
+        estimator: Literal["auto", "sampled", "exact"] = "auto",
         **kwargs,
     ) -> VQEResult:
         """
@@ -934,111 +844,108 @@ class VQESolver(QuantumAlgorithm):
             hamiltonian: Problem Hamiltonian (required for VQE)
             shots: Number of measurement shots
             experiment_name: Name of the experiment (default: "Default Experiment")
-            need_statevector: Defaults to True for exact statevector energy
-                evaluation and False for sampled energy evaluation. Exact mode
-                requires a statevector and rejects an explicit False.
-            need_density_matrix: Request a density matrix in addition to the
-                results needed for energy evaluation (default: False).
             device_name: Target device name ('QpiAI-QSV-Simulator', 'QpiAI-QDM-Simulator', 'QpiAI-QTN-Simulator', 'QpiAI-Indus-1')
             reverse_bits: Reverse bit order in returned counts and bitstring.
                 Energy evaluation always uses canonical qubit order.
+            estimator: "sampled" uses counts; "exact" requires statevector support.
+                "auto" preserves exact statevector simulation and otherwise samples.
             **kwargs: Additional parameters
 
         Returns:
             VQEResult: Optimization results including optimal energy and parameters
         """
-        # Map high-level device_name to low-level (device, method)
-        from qpiai_quantum.circuit.circuit import _map_device_name_to_method
-
+        if "execution_kind" in kwargs or "result_transport" in kwargs:
+            raise TypeError(
+                "execution_kind and result_transport are not supported by this SDK"
+            )
         requested_method = kwargs.pop("method", None)
+        if estimator not in {"auto", "sampled", "exact"}:
+            raise ValueError("estimator must be auto, sampled or exact")
+        from qpiai_quantum.jobmanager.backend import get_device_info, RESULT_STATEVECTOR
+
+        profile = get_device_info(device_name, kwargs.get("access_token"))
+        exact = estimator == "exact" or (
+            estimator == "auto"
+            and (requested_method or profile.method) == "statevector"
+            and (RESULT_STATEVECTOR in profile.supported_results)
+            and (not profile.is_hardware)
+        )
+        if exact and (
+            profile.is_hardware or RESULT_STATEVECTOR not in profile.supported_results
+        ):
+            raise ValueError(
+                "Exact estimation requires a simulator with statevector support."
+            )
+        if requested_method not in {None, "qasm", profile.method}:
+            raise ValueError(
+                "method must match the device profile; select estimator='sampled' or 'exact' separately."
+            )
+        if need_statevector and RESULT_STATEVECTOR not in profile.supported_results:
+            raise ValueError("Selected device cannot return a statevector.")
+        if need_density_matrix and "density_matrix" not in profile.supported_results:
+            raise ValueError("Selected device cannot return a density matrix.")
+        if exact and need_statevector is False:
+            raise ValueError(
+                "Exact estimation requires need_statevector=True. Use estimator='sampled' for counts."
+            )
+        self._requested_outputs: dict[str, Any] = {
+            "need_statevector": exact if need_statevector is None else need_statevector,
+            "need_density_matrix": bool(need_density_matrix),
+            **{key: kwargs.pop(key) for key in ("access_token",) if key in kwargs},
+        }
         method = (
             requested_method
-            if requested_method is not None
-            else _map_device_name_to_method(device_name)
+            if requested_method not in {None, "qasm"}
+            else profile.method
         )
-        if need_statevector is None:
-            need_statevector = method == "statevector"
-        if method == "statevector" and not need_statevector:
-            raise ValueError(
-                "Exact statevector VQE requires need_statevector=True. "
-                "Use a sampled execution method to evaluate energy from counts."
-            )
-        result_flags = {
-            "need_statevector": need_statevector,
-            "need_density_matrix": need_density_matrix,
-        }
-
         if "hamiltonian" in kwargs:
             self.hamiltonian = kwargs["hamiltonian"]
-
         if self.hamiltonian is None:
             raise ValueError(
                 "VQE requires a hamiltonian parameter (either in __init__ or run)"
             )
-
         self.shots = shots
-
-        # Hamiltonian support is a minimum requirement, not the circuit width.
         required_width = self._get_n_qubits_from_hamiltonian(self.hamiltonian)
         if required_width > self.num_qubits:
             raise ValueError(
-                f"Hamiltonian requires {required_width} qubits, but the declared "
-                f"VQE register has {self.num_qubits}. Increase n_qubits and use "
-                "a matching ansatz, or correct the Hamiltonian qubit indices."
+                f"Hamiltonian requires {required_width} qubits, but the declared VQE register has {self.num_qubits}. Increase n_qubits and use a matching ansatz, or correct the Hamiltonian qubit indices."
             )
-
-        # Get and validate ansatz
         ansatz = self._get_ansatz()
-
         if not isinstance(ansatz, Circuit):
             raise ValueError("Ansatz must return a Circuit object")
-
         if not hasattr(ansatz, "icr") or not ansatz.icr:
             raise ValueError("Ansatz circuit must have ICR representation")
-
         if not hasattr(ansatz.icr, "evolve"):
             raise ValueError("Ansatz circuit must have valid ICR evolution operations")
-
-        # Count parameters
         n_params = self._parameter_count(ansatz)
-
-        # Initialize parameters
         if self.initial_point is not None:
             params = np.array(self.initial_point, dtype=float)
             if (
                 params.ndim != 1
                 or len(params) != n_params
-                or not np.all(np.isfinite(params))
+                or (not np.all(np.isfinite(params)))
             ):
                 raise ValueError(
-                    f"initial_point must contain exactly {n_params} finite values. "
-                    "Numeric angles are fixed; mark adjustable arguments with parameterize()."
+                    f"initial_point must contain exactly {n_params} finite values. Numeric angles are fixed; mark adjustable arguments with parameterize()."
                 )
         else:
             params = np.random.uniform(0, 2 * np.pi, n_params)
             self.initial_point = params
-
-        # Check if Hamiltonian has X/Y terms
         terms = self.hamiltonian.get_hamiltonian_terms()
-        has_xy = any(any(op in ["X", "Y"] for _, op in ops) for ops, _ in terms)
-
-        identity_constant = sum(coeff for ops, coeff in terms if not ops)
+        has_xy = any((any((op in ["X", "Y"] for _, op in ops)) for ops, _ in terms))
+        identity_constant = sum((coeff for ops, coeff in terms if not ops))
         active_terms = [t for t in terms if t[0]]
-
-        if has_xy and method != "statevector":
+        if has_xy and (not exact):
             grouped_terms = self._group_hamiltonian_terms(active_terms)
         else:
             grouped_terms = []
 
-        def evaluate_sampled_energy(
-            theta: np.ndarray,
-        ) -> tuple[float, float | None]:
+        def evaluate_sampled_energy(theta: np.ndarray) -> tuple[float, float | None]:
             """Evaluate fresh counts in canonical order, before display reversal."""
             if has_xy:
                 total_energy = identity_constant
                 total_variance = 0.0
                 uncertainty_available = True
-
                 for basis_dict, group_terms in grouped_terms:
                     circuit = self._build_circuit(ansatz, theta, measure=False)
                     for q, op in basis_dict.items():
@@ -1048,7 +955,6 @@ class VQESolver(QuantumAlgorithm):
                             circuit.sdg(q)
                             circuit.h(q)
                     circuit.measure_all()
-
                     result = self._execute_circuit(
                         circuit,
                         method=method,
@@ -1056,14 +962,12 @@ class VQESolver(QuantumAlgorithm):
                         shots=shots,
                         experiment_name=experiment_name,
                         reverse_bits=False,
-                        **result_flags,
                     )
                     counts = result.counts if result.counts else {}
                     if not counts:
                         raise RuntimeError(
                             "Sampled VQE execution returned no measurement counts."
                         )
-
                     group_energy, group_standard_error = (
                         self._compute_counts_energy_statistics(counts, group_terms)
                     )
@@ -1072,12 +976,10 @@ class VQESolver(QuantumAlgorithm):
                         uncertainty_available = False
                     else:
                         total_variance += group_standard_error**2
-
                 standard_error = (
                     float(np.sqrt(total_variance)) if uncertainty_available else None
                 )
-                return total_energy, standard_error
-
+                return (total_energy, standard_error)
             circuit = self._build_circuit(ansatz, theta, measure=True)
             result = self._execute_circuit(
                 circuit,
@@ -1086,7 +988,6 @@ class VQESolver(QuantumAlgorithm):
                 shots=shots,
                 experiment_name=experiment_name,
                 reverse_bits=False,
-                **result_flags,
             )
             counts = result.counts if result.counts else {}
             if not counts:
@@ -1097,7 +998,7 @@ class VQESolver(QuantumAlgorithm):
 
         def objective(theta: np.ndarray) -> float:
             """Compute energy for given parameters."""
-            if method == "statevector":
+            if exact:
                 circuit = self._build_circuit(ansatz, theta, measure=False)
                 result = self._execute_circuit(
                     circuit,
@@ -1106,43 +1007,33 @@ class VQESolver(QuantumAlgorithm):
                     shots=shots,
                     experiment_name=experiment_name,
                     reverse_bits=False,
-                    **result_flags,
                 )
                 if not hasattr(result, "statevector") or result.statevector is None:
                     raise RuntimeError(
                         "Simulator did not return a statevector in statevector mode."
                     )
                 return self._compute_statevector_expectation(result.statevector, terms)
-
             sampled_energy, _ = evaluate_sampled_energy(theta)
             return sampled_energy
 
-        # Run optimization (info is printed in _optimize_parameters)
         opt_result = self._optimize_parameters(
-            objective=objective,
-            initial_point=params,
-            n_params=n_params,
-            **kwargs,
+            objective=objective, initial_point=params, n_params=n_params, **kwargs
         )
-
         best_params, optimizer_energy, opt_info = opt_result
         actual_iterations = opt_info.get("nit", 0)
         actual_nfev = opt_info.get("nfev", 0)
         converged_early = (
             bool(opt_info.get("success", False))
             and actual_iterations is not None
-            and actual_iterations < self.max_iterations
+            and (actual_iterations < self.max_iterations)
         )
-
-        if method == "statevector":
+        if exact:
             optimal_energy = float(optimizer_energy)
             energy_standard_error = None
         else:
             optimal_energy, energy_standard_error = evaluate_sampled_energy(
                 np.asarray(best_params, dtype=float)
             )
-
-        # Print completion summary
         if self.verbose:
             print("\n" + "=" * 70)
             print("VQE OPTIMIZATION COMPLETED")
@@ -1154,18 +1045,13 @@ class VQESolver(QuantumAlgorithm):
             if energy_standard_error is not None:
                 print(f"Standard Error:      {energy_standard_error:.6f}")
             print(f"Success:             {opt_info.get('success', False)}")
-
-            # Check if iterations match expectations
             if converged_early:
                 print(
                     f"\n Note: Optimizer converged early (stopped at iteration {actual_iterations})"
                 )
             elif actual_iterations == self.max_iterations:
                 print("\n Note: Optimizer reached max_iterations limit")
-
             print("=" * 70 + "\n")
-
-        # Get final measurement results
         final_circuit = self._build_circuit(ansatz, best_params)
         final_result = self._execute_circuit(
             final_circuit,
@@ -1174,23 +1060,17 @@ class VQESolver(QuantumAlgorithm):
             shots=shots,
             experiment_name=experiment_name,
             reverse_bits=reverse_bits,
-            **result_flags,
         )
-
         final_counts = final_result.counts if final_result.counts else {}
-
-        # Handle empty counts case
         if final_counts:
             best_bitstring = max(final_counts.items(), key=lambda x: x[1])[0]
         else:
-            # Fallback: generate default bitstring of all zeros
             best_bitstring = "0" * self.num_qubits
             warnings.warn(
                 f"No measurement counts returned. Using default bitstring: {best_bitstring}",
                 UserWarning,
                 stacklevel=2,
             )
-
         return VQEResult(
             optimal_parameters=best_params.tolist(),
             optimal_energy=optimal_energy,
@@ -1205,6 +1085,7 @@ class VQESolver(QuantumAlgorithm):
                 "circuit_evaluations": actual_nfev,
                 "message": opt_info.get("message", ""),
                 "method": method,
+                "estimator": "exact" if exact else "sampled",
                 "device_name": device_name,
                 "experiment_name": experiment_name,
                 "reverse_bits": reverse_bits,
@@ -1212,11 +1093,7 @@ class VQESolver(QuantumAlgorithm):
                 "n_parameters": n_params,
                 "optimizer": self.optimizer,
                 "converged_early": converged_early,
-                **(
-                    {"optimizer_energy": float(optimizer_energy)}
-                    if method != "statevector"
-                    else {}
-                ),
+                **({"optimizer_energy": float(optimizer_energy)} if not exact else {}),
             },
             energy_standard_error=energy_standard_error,
         )

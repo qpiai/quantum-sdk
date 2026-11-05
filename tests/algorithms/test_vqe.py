@@ -74,7 +74,7 @@ class TestVQEHelpers(unittest.TestCase):
                     result = solver.run(
                         hamiltonian=DummyHamiltonian(),
                         device_name="QpiAI-QSV-Local",
-                        method="statevector_sampling",
+                        estimator="sampled",
                         shots=10,
                     )
 
