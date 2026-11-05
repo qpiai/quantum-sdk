@@ -64,6 +64,9 @@ class CircuitOperation:
         self.clbits = None if clbits is None else [validate_index(c) for c in clbits]
         self.parameter_index = parameter_index
         self.parameter_scale = parameter_scale
+        # Per-angle explicit variational bindings: argument -> (index, scale, offset).
+        # Numeric arguments without annotations remain fixed in QAOA and VQE.
+        self.parameter_bindings: dict[int, tuple[int, float, float]] = {}
 
     def decompose(self) -> list["CircuitOperation"] | None:
         """Return an independent gate body, or None for an opaque operation.
@@ -98,6 +101,11 @@ class CircuitOperation:
         if self.parameter_index is not None:
             result["parameter_index"] = self.parameter_index
             result["parameter_scale"] = self.parameter_scale
+        if self.parameter_bindings:
+            result["parameter_bindings"] = {
+                str(argument): list(binding)
+                for argument, binding in self.parameter_bindings.items()
+            }
         order = getattr(self, "order", None)
         if order is not None:
             result["order"] = [op.to_json() for op in order]

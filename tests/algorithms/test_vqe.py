@@ -48,6 +48,39 @@ class TestVQEInitializationAndAnsatz(unittest.TestCase):
 
 
 class TestVQEHelpers(unittest.TestCase):
+    def test_unknown_optimizer_iterations_are_preserved_without_comparison_errors(self):
+        solver = VQESolver(
+            n_qubits=2,
+            ansatz=lambda _: Circuit(2),
+            optimizer="cobyla",
+            verbose=True,
+        )
+        for success in (False, True):
+            with self.subTest(success=success):
+                info = {"nit": None, "nfev": 1, "success": success}
+                with (
+                    patch.object(
+                        solver,
+                        "_optimize_parameters",
+                        return_value=(np.array([]), 0.75, info),
+                    ),
+                    patch.object(
+                        solver,
+                        "_execute_circuit",
+                        return_value=MagicMock(counts={"00": 10}),
+                    ),
+                    patch("builtins.print"),
+                ):
+                    result = solver.run(
+                        hamiltonian=DummyHamiltonian(),
+                        device_name="QpiAI-QSV-Local",
+                        method="statevector_sampling",
+                        shots=10,
+                    )
+
+                self.assertIsNone(result.metadata["actual_iterations"])
+                self.assertFalse(result.metadata["converged_early"])
+
     def test_count_parameters(self):
         vqe = VQESolver(n_qubits=2, ansatz="standard")
         n_params = vqe.num_parameters

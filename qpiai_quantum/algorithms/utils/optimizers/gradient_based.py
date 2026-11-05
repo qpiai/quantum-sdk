@@ -4,6 +4,7 @@ from typing import Optional, Union
 from collections.abc import Callable
 import numpy as np
 from scipy.optimize import minimize
+from .progress import OptimizationProgress
 
 
 class HistoryTracker:
@@ -34,16 +35,19 @@ class HistoryTracker:
 
         return wrapped_objective
 
-    def create_callback(self, user_callback: Callable | None = None):
+    def create_callback(
+        self,
+        user_callback: Callable | None = None,
+        progress: OptimizationProgress | None = None,
+    ):
         """Create a callback that tracks iterations."""
 
         def callback_wrapper(xk):
             self.iteration_count += 1
+            if progress is not None:
+                progress.callback_reports += 1
             if user_callback is not None:
-                try:
-                    user_callback(xk)
-                except Exception:
-                    pass
+                user_callback(xk)
 
         return callback_wrapper
 
@@ -99,6 +103,8 @@ def gradient_descent_optimize(
     actual_iterations = 0
 
     user_callback = kwargs.get("callback")
+    progress = kwargs.get("progress", OptimizationProgress())
+    progress.completed_iterations = 0
 
     for iteration in range(maxiter):
         actual_iterations = iteration + 1
@@ -124,11 +130,9 @@ def gradient_descent_optimize(
             best_params = params.copy()
 
         # User callback
+        progress.complete_iteration()
         if user_callback is not None:
-            try:
-                user_callback(params)
-            except Exception:
-                pass
+            user_callback(params)
 
         # Check convergence
         if len(tracker.energy_history) > 1:
@@ -216,6 +220,8 @@ def adam_optimize(
     v = np.zeros_like(params)  # Second moment
 
     user_callback = kwargs.get("callback")
+    progress = kwargs.get("progress", OptimizationProgress())
+    progress.completed_iterations = 0
 
     for iteration in range(maxiter):
         actual_iterations = iteration + 1
@@ -253,11 +259,9 @@ def adam_optimize(
             best_params = params.copy()
 
         # User callback
+        progress.complete_iteration()
         if user_callback is not None:
-            try:
-                user_callback(params)
-            except Exception:
-                pass
+            user_callback(params)
 
         # Check convergence
         if len(tracker.energy_history) > 1:
@@ -340,6 +344,8 @@ def adagrad_optimize(
     G = np.zeros_like(params)
 
     user_callback = kwargs.get("callback")
+    progress = kwargs.get("progress", OptimizationProgress())
+    progress.completed_iterations = 0
 
     for iteration in range(maxiter):
         actual_iterations = iteration + 1
@@ -368,11 +374,9 @@ def adagrad_optimize(
             best_params = params.copy()
 
         # User callback
+        progress.complete_iteration()
         if user_callback is not None:
-            try:
-                user_callback(params)
-            except Exception:
-                pass
+            user_callback(params)
 
         # Check convergence
         if len(tracker.energy_history) > 1:
@@ -399,7 +403,7 @@ def adagrad_optimize(
 def l_bfgs_b_optimize(
     objective: Callable[[np.ndarray], float],
     gradient: Callable[[np.ndarray], np.ndarray] | None = None,
-    initial_point: np.ndarray = None,
+    initial_point: np.ndarray | None = None,
     bounds: list[tuple[float, float]] | None = None,
     maxiter: int = 100,
     tol: float = 1e-6,
@@ -432,10 +436,15 @@ def l_bfgs_b_optimize(
             - param_history: Parameter values at each evaluation
             - success: Whether optimization succeeded
     """
+    if initial_point is None:
+        raise ValueError("initial_point is required")
+
     # Use the history tracker
     tracker = HistoryTracker()
     wrapped_objective = tracker.create_wrapped_objective(objective)
-    callback_wrapper = tracker.create_callback(kwargs.get("callback"))
+    callback_wrapper = tracker.create_callback(
+        kwargs.get("callback"), kwargs.get("progress")
+    )
 
     result = minimize(
         wrapped_objective,
@@ -470,7 +479,7 @@ def l_bfgs_b_optimize(
 def cg_optimize(
     objective: Callable[[np.ndarray], float],
     gradient: Callable[[np.ndarray], np.ndarray] | None = None,
-    initial_point: np.ndarray = None,
+    initial_point: np.ndarray | None = None,
     maxiter: int = 100,
     tol: float = 1e-6,
     **kwargs,
@@ -500,10 +509,15 @@ def cg_optimize(
             - param_history: Parameter values at each evaluation
             - success: Whether optimization succeeded
     """
+    if initial_point is None:
+        raise ValueError("initial_point is required")
+
     # Use the history tracker
     tracker = HistoryTracker()
     wrapped_objective = tracker.create_wrapped_objective(objective)
-    callback_wrapper = tracker.create_callback(kwargs.get("callback"))
+    callback_wrapper = tracker.create_callback(
+        kwargs.get("callback"), kwargs.get("progress")
+    )
 
     result = minimize(
         wrapped_objective,

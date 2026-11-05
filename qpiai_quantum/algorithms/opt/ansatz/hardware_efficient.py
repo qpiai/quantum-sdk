@@ -1,5 +1,6 @@
 from ....circuit import Circuit
 from ....circuit.quantumregister import QuantumRegister
+from ..parameters import parameterize
 
 
 def hardware_efficient_ansatz(
@@ -24,6 +25,7 @@ def hardware_efficient_ansatz(
     # NOTE : Initial layer of single-qubit rotations
     for i in range(n_qubits):
         circuit.ry(i, 0.0)  # NOTE: To be parameterized by optimizer
+        parameterize(circuit, param_count)
         param_count += 1
 
     # NOTE: Alternating layers of entanglement and rotations
@@ -41,8 +43,10 @@ def hardware_efficient_ansatz(
 
         for i in range(n_qubits):
             circuit.ry(i, 0.0)  # NOTE: To be parameterized by optimizer
+            parameterize(circuit, param_count)
             param_count += 1
             circuit.rz(i, 0.0)  # NOTE: To be parameterized by optimizer
+            parameterize(circuit, param_count)
             param_count += 1
 
     return circuit
@@ -77,6 +81,7 @@ def two_local_ansatz(
             circuit.rx(i, 0.0)  # NOTE: To  be parameterized by optimizer
         elif rotation_blocks == "rz":
             circuit.rz(i, 0.0)  # NOTE: To be parameterized by optimizer
+        parameterize(circuit, param_count)
         param_count += 1
 
     for _ in range(reps):
@@ -95,6 +100,7 @@ def two_local_ansatz(
                 circuit.rx(i, 0.0)  # NOTE: To be parameterized by optimizer
             elif rotation_blocks == "rz":
                 circuit.rz(i, 0.0)  # NOTE: To be parameterized by optimizer
+            parameterize(circuit, param_count)
             param_count += 1
 
     return circuit

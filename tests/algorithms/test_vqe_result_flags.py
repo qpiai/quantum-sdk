@@ -19,8 +19,11 @@ class Hamiltonian:
 
 
 def make_solver():
+    from qpiai_quantum.algorithms.opt import parameterize
+
     ansatz = Circuit(1)
     ansatz.ry(0, 0.0)
+    parameterize(ansatz, 0)
     return VQESolver(
         n_qubits=1,
         ansatz=lambda _: ansatz,

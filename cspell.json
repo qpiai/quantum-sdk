@@ -12,6 +12,7 @@
     "statevectors",
     "frombuffer",
     "qaoa",
+    "qubo",
     "vqe",
     "qpe",
     "qft",

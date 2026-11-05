@@ -4,6 +4,26 @@ A comprehensive collection of modular quantum algorithm implementations built on
 
 ## Available Algorithms
 
+### Custom variational circuit parameters
+
+Custom QAOA and VQE circuits keep numeric gate angles fixed unless explicitly
+marked as adjustable. Built-in ansatz builders mark their parameters for you.
+When migrating a custom circuit that previously treated every angle as adjustable,
+mark each adjustable angle with `parameterize` before passing it to the solver:
+
+```python
+from qpiai_quantum.circuit import Circuit
+from qpiai_quantum.algorithms.opt import parameterize
+
+ansatz = Circuit(1)
+ansatz.ry(0, 0.0)
+parameterize(ansatz, 0)  # Bind the last gate's angle to parameter 0.
+ansatz.rz(0, 0.25)  # This angle stays fixed.
+```
+
+The parameter vector contains only the marked logical parameters. Reuse a
+parameter index with `scale` and `offset` to share an angle across gates.
+
 ### 1. Quantum Fourier Transform (QFT)
 Quantum analog of the classical discrete Fourier transform.
 

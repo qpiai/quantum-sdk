@@ -7,10 +7,11 @@ from qpiai_quantum.results.base_result import BaseQuantumResult
 from ....circuit import Circuit
 from ....jobmanager import JobManager
 from ....jobmanager.job_result import JobResult
-from ....icr.circuitoperation import OperationType, CircuitOperation
 from ...base import QuantumAlgorithm
 from ..ansatz.hardware_efficient import hardware_efficient_ansatz, two_local_ansatz
-from ..ansatz.standard import standard_vqe_ansatz, count_parameters
+from ..ansatz.standard import standard_vqe_ansatz
+from ..parameters import bind_parameters, count_parameters
+from ..differentiation import finite_difference
 from ...utils.optimizers import (
     adam_optimize,
     gradient_descent_optimize,
@@ -69,12 +70,21 @@ class VQESolver(QuantumAlgorithm):
     Args:
         n_qubits: Declared register width. The Hamiltonian must fit this register,
             and the ansatz must have exactly this many qubits.
-        ansatz: Quantum circuit ansatz ('standard', 'hardware_efficient', 'two_local', or callable, default: 'standard')
+        ansatz: ``standard`` (default), ``hardware_efficient``, ``two_local``,
+            or a builder ``(n_qubits) -> Circuit``. Numeric angles are fixed.
+            Mark adjustable arguments with ``qpiai_quantum.algorithms.opt.parameterize``.
+            Reused indices share optimizer values; scaling, offsets, and separate
+            arguments in multi-angle gates are supported. Old numeric placeholders
+            must be explicitly marked when migrating custom builders.
         optimizer: Optimization method ('adam', 'gradient_descent', 'cobyla', 'spsa', etc.)
         max_iterations: Maximum number of optimization iterations (default: 100)
         initial_point: Initial parameters for optimization
         verbose: Enable printing of optimization progress and completion summaries (default: True)
         name: Name of this VQE instance
+        gradient_step: Central-difference step in radians (default: 0.01).
+            Supports shared, scaled, and multi-angle bindings. Smaller steps
+            reduce approximation error but amplify finite-shot noise. Increase
+            the step or shots for sampled objectives; decrease it for exact ones.
 
     Note:
         max_iterations is ONLY set here in __init__(). Use with_max_iterations()
@@ -125,8 +135,17 @@ class VQESolver(QuantumAlgorithm):
         initial_point: np.ndarray | list[float] | None = None,
         verbose: bool = True,
         name: str = "VQE",
-    ):
+        gradient_step: float = 0.01,
+    ) -> None:
         """Initialize VQE solver with algorithm parameters."""
+        if (
+            isinstance(gradient_step, bool)
+            or not isinstance(gradient_step, int | float)
+            or not np.isfinite(gradient_step)
+            or gradient_step <= 0
+        ):
+            raise ValueError("gradient_step must be a positive finite number")
+        self.gradient_step = float(gradient_step)
         super().__init__(num_qubits=n_qubits, name=name)
         self.ansatz = ansatz
         self.optimizer = optimizer.lower()
@@ -202,61 +221,15 @@ class VQESolver(QuantumAlgorithm):
         parameters: np.ndarray | None = None,
         measure: bool = True,
     ) -> Circuit:
+        """Copy the template and bind only explicitly marked angle arguments.
+
+        Numeric angles without a binding stay fixed. The common QAOA/VQE binder
+        validates vector length, sharing, scaling, and multi-angle gates.
         """
-        Private method: Apply parameters to ansatz and build executable circuit.
-
-        Args:
-            ansatz: Pre-validated ansatz circuit template
-            parameters: Parameter values to apply (optional)
-            measure: Append measurement operations at the end (default: True)
-
-        Returns:
-            Parameterized circuit ready for execution
-        """
-        circuit = Circuit(self.num_qubits)
-        explicit_parameter_count = self._explicit_parameter_count(ansatz)
-        sequential_param_idx = 0
-
-        try:
-            if ansatz.icr is None:
-                raise ValueError("Circuit has no ICR representation")
-
-            if not hasattr(ansatz.icr, "evolve"):
-                raise ValueError("ICR has no evolve attribute")
-
-            for op in ansatz.icr.evolve:
-                if isinstance(op, CircuitOperation):
-                    if op.operation_type == OperationType.N_QUBIT_PARAMETRIC:
-                        if parameters is not None:
-                            parameter_index = getattr(op, "parameter_index", None)
-                            if parameter_index is None:
-                                parameter_index = (
-                                    explicit_parameter_count + sequential_param_idx
-                                )
-                                sequential_param_idx += 1
-                            parameter_scale = float(getattr(op, "parameter_scale", 1.0))
-                            param_value = (
-                                float(parameters[parameter_index]) * parameter_scale
-                            )
-                            new_op = CircuitOperation(
-                                operation_type=op.operation_type,
-                                gate_name=op.gate_name,
-                                qubits=op.qubits,
-                                params=[param_value],
-                                clbits=op.clbits,
-                            )
-                            circuit.add_operation(new_op)
-                        else:
-                            circuit.add_operation(op)
-                    else:
-                        circuit.add_operation(op)
-
-            if measure:
-                circuit.measure_all()
-            return circuit
-
-        except (AttributeError, TypeError, IndexError) as e:
-            raise ValueError(f"Error building circuit: {str(e)}")
+        circuit = bind_parameters(ansatz, parameters)
+        if measure:
+            circuit.measure_all()
+        return circuit
 
     def _group_hamiltonian_terms(
         self, terms: list[tuple[list[tuple[int, str]], float]]
@@ -487,36 +460,17 @@ class VQESolver(QuantumAlgorithm):
     def _compute_gradient(
         self, params: np.ndarray, cost_function: Callable[[np.ndarray], float]
     ) -> np.ndarray:
+        """Differentiate the complete bound circuit using central differences.
+
+        A logical angle can feed several gates, have a scale other than one,
+        or control one argument of a multi-angle gate. The single-gate +/- pi/2
+        formula does not generally apply to that logical angle. Probe the full
+        objective instead, using two executions per optimizer value. These are
+        finite-difference approximations, not exact parameter-shift derivatives.
         """
-        Compute gradient using parameter shift rule.
-
-        WARNING: This requires 2N circuit executions where N = number of parameters!
-
-        For a parameterized gate U(θ), the gradient is:
-        ∂⟨H⟩/∂θ = [⟨H⟩(θ + π/2) - ⟨H⟩(θ - π/2)] / 2
-
-        Args:
-            params: Current parameter values
-            cost_function: Objective function to differentiate
-
-        Returns:
-            Gradient vector
-        """
-        grad = np.zeros_like(params)
-        shift = np.pi / 2
-
-        for i in range(len(params)):
-            params_plus = params.copy()
-            params_plus[i] += shift
-            energy_plus = cost_function(params_plus)
-
-            params_minus = params.copy()
-            params_minus[i] -= shift
-            energy_minus = cost_function(params_minus)
-
-            grad[i] = (energy_plus - energy_minus) / 2
-
-        return grad
+        return finite_difference(
+            np.asarray(params, dtype=float), cost_function, self.gradient_step
+        )
 
     def _get_job_manager(self) -> JobManager:
         """Get or create quantum job manager."""
@@ -722,6 +676,19 @@ class VQESolver(QuantumAlgorithm):
         Returns:
             tuple of (optimal_params, optimal_value, optimization_info)
         """
+        if n_params == 0:
+            point = np.asarray(initial_point, dtype=float).copy()
+            return (
+                point,
+                float(objective(point)),
+                {
+                    "success": True,
+                    "nfev": 1,
+                    "nit": 0,
+                    "message": "Fixed circuit evaluated; no adjustable angles",
+                },
+            )
+
         GRADIENT_FREE_OPTIMIZERS = {
             "cobyla",
             "spsa",
@@ -864,30 +831,9 @@ class VQESolver(QuantumAlgorithm):
         )
 
     @staticmethod
-    def _explicit_parameter_count(circuit: Circuit) -> int:
-        """Return the size of the explicitly indexed parameter range."""
-        indices: list[int] = []
-        for op in circuit.icr.evolve:
-            if (
-                isinstance(op, CircuitOperation)
-                and op.operation_type == OperationType.N_QUBIT_PARAMETRIC
-                and op.parameter_index is not None
-            ):
-                indices.append(op.parameter_index)
-        return max(indices, default=-1) + 1
-
-    @classmethod
-    def _parameter_count(cls, circuit: Circuit) -> int:
-        """Count logical parameters, including shared indexed parameters."""
-        explicit_count = cls._explicit_parameter_count(circuit)
-        sequential_count = sum(
-            1
-            for op in circuit.icr.evolve
-            if isinstance(op, CircuitOperation)
-            and op.operation_type == OperationType.N_QUBIT_PARAMETRIC
-            and getattr(op, "parameter_index", None) is None
-        )
-        return explicit_count + sequential_count
+    def _parameter_count(circuit: Circuit) -> int:
+        """Count explicitly declared optimizer values, including shared angles."""
+        return count_parameters(circuit)
 
     def _count_parameters(self) -> int:
         """Count the number of logical parameters in the ansatz circuit."""
@@ -1059,10 +1005,14 @@ class VQESolver(QuantumAlgorithm):
         # Initialize parameters
         if self.initial_point is not None:
             params = np.array(self.initial_point, dtype=float)
-            if len(params) != n_params:
+            if (
+                params.ndim != 1
+                or len(params) != n_params
+                or not np.all(np.isfinite(params))
+            ):
                 raise ValueError(
-                    f"initial_point has {len(params)} parameters "
-                    f"but ansatz requires {n_params} parameters"
+                    f"initial_point must contain exactly {n_params} finite values. "
+                    "Numeric angles are fixed; mark adjustable arguments with parameterize()."
                 )
         else:
             params = np.random.uniform(0, 2 * np.pi, n_params)
@@ -1178,6 +1128,11 @@ class VQESolver(QuantumAlgorithm):
         best_params, optimizer_energy, opt_info = opt_result
         actual_iterations = opt_info.get("nit", 0)
         actual_nfev = opt_info.get("nfev", 0)
+        converged_early = (
+            bool(opt_info.get("success", False))
+            and actual_iterations is not None
+            and actual_iterations < self.max_iterations
+        )
 
         if method == "statevector":
             optimal_energy = float(optimizer_energy)
@@ -1201,7 +1156,7 @@ class VQESolver(QuantumAlgorithm):
             print(f"Success:             {opt_info.get('success', False)}")
 
             # Check if iterations match expectations
-            if actual_iterations < self.max_iterations:
+            if converged_early:
                 print(
                     f"\n Note: Optimizer converged early (stopped at iteration {actual_iterations})"
                 )
@@ -1256,7 +1211,7 @@ class VQESolver(QuantumAlgorithm):
                 "shots": shots,
                 "n_parameters": n_params,
                 "optimizer": self.optimizer,
-                "converged_early": actual_iterations < self.max_iterations,
+                "converged_early": converged_early,
                 **(
                     {"optimizer_energy": float(optimizer_energy)}
                     if method != "statevector"

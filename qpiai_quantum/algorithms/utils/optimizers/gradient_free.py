@@ -1,8 +1,20 @@
 # Gradient-free optimizers for quantum algorithms
-from typing import Optional, Union
+# cspell:ignore catol
 from collections.abc import Callable
+from inspect import signature
 import numpy as np
-from scipy.optimize import minimize, differential_evolution
+from scipy.optimize import minimize, differential_evolution, OptimizeResult
+from .progress import OptimizationProgress
+
+
+RandomSeed = int | np.random.Generator | None
+
+
+def _get_rng(seed: RandomSeed) -> np.random.Generator:
+    """Return a local random generator without changing NumPy global state."""
+    if isinstance(seed, np.random.Generator):
+        return seed
+    return np.random.default_rng(seed)
 
 
 class HistoryTracker:
@@ -11,21 +23,23 @@ class HistoryTracker:
     This can be shared across all optimizers.
     """
 
-    def __init__(self):
-        self.energy_history = []
-        self.param_history = []
+    def __init__(self) -> None:
+        self.energy_history: list[float] = []
+        self.param_history: list[np.ndarray] = []
         self.iteration_count = 0
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset all history."""
         self.energy_history = []
         self.param_history = []
         self.iteration_count = 0
 
-    def create_wrapped_objective(self, objective: Callable[[np.ndarray], float]):
+    def create_wrapped_objective(
+        self, objective: Callable[[np.ndarray], float]
+    ) -> Callable[[np.ndarray], float]:
         """Create a wrapped objective function that tracks history."""
 
-        def wrapped_objective(params):
+        def wrapped_objective(params: np.ndarray) -> float:
             energy = objective(params)
             self.energy_history.append(float(energy))
             self.param_history.append(params.copy())
@@ -33,16 +47,19 @@ class HistoryTracker:
 
         return wrapped_objective
 
-    def create_callback(self, user_callback: Callable | None = None):
+    def create_callback(
+        self,
+        user_callback: Callable[[np.ndarray], None] | None = None,
+        progress: OptimizationProgress | None = None,
+    ) -> Callable[[np.ndarray], None]:
         """Create a callback that tracks iterations."""
 
-        def callback_wrapper(xk):
+        def callback_wrapper(xk: np.ndarray) -> None:
             self.iteration_count += 1
+            if progress is not None:
+                progress.callback_reports += 1
             if user_callback is not None:
-                try:
-                    user_callback(xk)
-                except Exception:
-                    pass
+                user_callback(xk)
 
         return callback_wrapper
 
@@ -56,8 +73,12 @@ def cobyla_optimize(
     tol: float = 1e-6,
     **kwargs,
 ) -> tuple[np.ndarray, float, dict]:
-    """
-    COBYLA (Constrained Optimization BY Linear Approximation) optimizer.
+    """Minimize with COBYLA using ``maxfun`` as its evaluation allowance.
+
+    SciPy calls this allowance ``maxiter``. When ``maxfun`` is omitted,
+    the legacy SDK conversion from ``maxiter`` is retained for compatibility;
+    it is a heuristic, not an enforced iteration limit. ``nit`` is unknown
+    when SciPy does not return it; callback reports are counted separately.
     """
     n_params = len(initial_point)
     if maxfun is None:
@@ -68,11 +89,15 @@ def cobyla_optimize(
         else:
             buffer = 50
         maxfun = maxiter * (n_params + 2) + buffer
+    if not isinstance(maxfun, int) or isinstance(maxfun, bool) or maxfun < 1:
+        raise ValueError("maxfun must be a positive integer")
 
     # Use the history tracker
     tracker = HistoryTracker()
     wrapped_objective = tracker.create_wrapped_objective(objective)
-    callback_wrapper = tracker.create_callback(kwargs.get("callback"))
+    callback_wrapper = tracker.create_callback(
+        kwargs.get("callback"), kwargs.get("progress")
+    )
 
     constraints = []
     if bounds is not None:
@@ -86,23 +111,29 @@ def cobyla_optimize(
                     {"type": "ineq", "fun": lambda x, idx=i, ub=upper: ub - x[idx]}
                 )
 
+    options = {
+        "maxiter": maxfun,
+        "tol": tol,
+        "rhobeg": kwargs.get("rhobeg", 1.0),
+        "catol": kwargs.get("catol", 2e-4),
+        **kwargs.get("options", {}),
+    }
+    if "f_target" in kwargs:
+        options["f_target"] = kwargs["f_target"]
+    # A nested SciPy option may tighten, but must not loosen, the allowance.
+    options["maxiter"] = min(maxfun, options["maxiter"])
+
     result = minimize(
         wrapped_objective,
         initial_point,
         method="COBYLA",
         constraints=constraints,
         callback=callback_wrapper,
-        options={"maxiter": maxiter, "tol": tol, **kwargs.get("options", {})},
+        # SciPy COBYLA names its function-evaluation limit ``maxiter``.
+        options=options,
     )
 
-    if tracker.iteration_count > 0:
-        actual_nit = tracker.iteration_count
-    elif hasattr(result, "nit") and result.nit > 0:
-        actual_nit = result.nit
-    elif result.nfev > 0:
-        actual_nit = max(1, min(result.nfev // (n_params + 2), maxiter))
-    else:
-        actual_nit = max(1, len(tracker.energy_history))
+    actual_nit = getattr(result, "nit", None)
 
     return (
         result.x,
@@ -110,11 +141,13 @@ def cobyla_optimize(
         {
             "nfev": result.nfev,
             "nit": actual_nit,
+            "callback_reports": tracker.iteration_count,
             "history": tracker.energy_history,
             "param_history": tracker.param_history,
             "status": result.status,
             "success": result.success,
             "message": result.message,
+            "max_evaluations": options["maxiter"],
         },
     )
 
@@ -133,25 +166,15 @@ def nelder_mead_optimize(
     # Use the history tracker
     tracker = HistoryTracker()
     wrapped_objective = tracker.create_wrapped_objective(objective)
-    callback_wrapper = tracker.create_callback(kwargs.get("callback"))
-
-    constraints = []
-    if bounds is not None:
-        for i, (lower, upper) in enumerate(bounds):
-            if lower is not None:
-                constraints.append(
-                    {"type": "ineq", "fun": lambda x, idx=i, lb=lower: x[idx] - lb}
-                )
-            if upper is not None:
-                constraints.append(
-                    {"type": "ineq", "fun": lambda x, idx=i, ub=upper: ub - x[idx]}
-                )
+    callback_wrapper = tracker.create_callback(
+        kwargs.get("callback"), kwargs.get("progress")
+    )
 
     result = minimize(
         wrapped_objective,
         initial_point,
         method="Nelder-Mead",
-        constraints=constraints,
+        bounds=bounds,
         callback=callback_wrapper,
         options={
             "maxiter": maxiter,
@@ -183,6 +206,7 @@ def spsa_optimize(
     tol: float = 1e-6,
     learning_rate: float = 0.1,
     perturbation_scale: float = 0.1,
+    seed: RandomSeed = None,
     **kwargs,
 ) -> tuple[np.ndarray, float, dict]:
     """
@@ -198,7 +222,8 @@ def spsa_optimize(
         tol: Tolerance for early stopping (if improvement < tol, stop)
         learning_rate: Step size for parameter updates
         perturbation_scale: Size of perturbations for gradient estimation
-        **kwargs: Additional arguments
+        seed: Seed or generator used for perturbations
+        **kwargs: Additional arguments, including an optional callback
 
     Returns:
         tuple containing:
@@ -212,6 +237,10 @@ def spsa_optimize(
     """
     # Use the history tracker
     tracker = HistoryTracker()
+    rng = _get_rng(seed)
+    user_callback = kwargs.get("callback")
+    progress = kwargs.get("progress", OptimizationProgress())
+    progress.completed_iterations = 0
 
     params = initial_point.copy()
     best_params = params.copy()
@@ -227,7 +256,7 @@ def spsa_optimize(
         actual_iterations = iteration + 1
 
         # Generate random perturbation
-        delta = 2 * np.random.randint(0, 2, size=len(params)) - 1
+        delta = 2 * rng.integers(0, 2, size=len(params)) - 1
 
         # Evaluate at perturbed points
         params_plus = params + perturbation_scale * delta
@@ -248,6 +277,9 @@ def spsa_optimize(
         nfev += 1
         tracker.energy_history.append(float(current_value))
         tracker.param_history.append(params.copy())
+        progress.complete_iteration()
+        if user_callback is not None:
+            user_callback(params.copy())
 
         # Track best
         improvement = best_value - current_value
@@ -289,7 +321,9 @@ def slsqp_optimize(
     # Use the history tracker
     tracker = HistoryTracker()
     wrapped_objective = tracker.create_wrapped_objective(objective)
-    callback_wrapper = tracker.create_callback(kwargs.get("callback"))
+    callback_wrapper = tracker.create_callback(
+        kwargs.get("callback"), kwargs.get("progress")
+    )
 
     result = minimize(
         wrapped_objective,
@@ -322,6 +356,7 @@ def differential_evolution_optimize(
     maxiter: int = 100,
     tol: float = 1e-6,
     popsize: int = 15,
+    seed: RandomSeed = None,
     **kwargs,
 ) -> tuple[np.ndarray, float, dict]:
     """
@@ -331,10 +366,33 @@ def differential_evolution_optimize(
     tracker = HistoryTracker()
     wrapped_objective = tracker.create_wrapped_objective(objective)
 
-    # Note: differential_evolution doesn't support callbacks in the same way
-    # But we can track through the wrapped objective
+    progress = kwargs.pop("progress", OptimizationProgress())
+    progress.completed_iterations = 0
+    callback = kwargs.pop("callback", None)
+    uses_result_callback = callback is not None and set(
+        signature(callback).parameters
+    ) == {"intermediate_result"}
+
+    def report_generation(intermediate_result: OptimizeResult) -> bool | None:
+        """Preserve SciPy's native generation count before forwarding callbacks."""
+        progress.completed_iterations = int(intermediate_result.nit)
+        progress.callback_reports += 1
+        if callback is None:
+            return None
+        if uses_result_callback:
+            return callback(intermediate_result=intermediate_result)
+        return callback(intermediate_result.x, intermediate_result.convergence)
+
+    rng = _get_rng(seed)
     result = differential_evolution(
-        wrapped_objective, bounds, maxiter=maxiter, tol=tol, popsize=popsize, **kwargs
+        wrapped_objective,
+        bounds,
+        maxiter=maxiter,
+        tol=tol,
+        popsize=popsize,
+        callback=report_generation,
+        rng=rng,
+        **kwargs,
     )
 
     return (
@@ -358,6 +416,7 @@ def genetic_algorithm_optimize(
     population_size: int = 50,
     mutation_rate: float = 0.1,
     crossover_rate: float = 0.8,
+    seed: RandomSeed = None,
     **kwargs,
 ) -> tuple[np.ndarray, float, dict]:
     """
@@ -373,7 +432,8 @@ def genetic_algorithm_optimize(
         population_size: Size of the population
         mutation_rate: Probability of mutation
         crossover_rate: Probability of crossover
-        **kwargs: Additional arguments
+        seed: Seed or generator used by the algorithm
+        **kwargs: Additional arguments, including an optional callback
 
     Returns:
         tuple containing:
@@ -389,8 +449,12 @@ def genetic_algorithm_optimize(
 
     # Use the history tracker
     tracker = HistoryTracker()
+    rng = _get_rng(seed)
+    user_callback = kwargs.get("callback")
+    progress = kwargs.get("progress", OptimizationProgress())
+    progress.completed_iterations = 0
 
-    population = np.random.uniform(
+    population = rng.uniform(
         low=[b[0] for b in bounds],
         high=[b[1] for b in bounds],
         size=(population_size, n_params),
@@ -406,9 +470,13 @@ def genetic_algorithm_optimize(
         nfev += population_size
 
         current_best_idx = np.argmin(fitness)
+        if not np.isfinite(fitness[current_best_idx]):
+            raise ValueError("objective must return at least one finite fitness value")
         if fitness[current_best_idx] < best_fitness:
             best_fitness = fitness[current_best_idx]
             best_params = population[current_best_idx].copy()
+        if best_params is None:
+            raise RuntimeError("genetic algorithm failed to select a best individual")
 
         # Track best in each generation
         tracker.energy_history.append(float(best_fitness))
@@ -417,7 +485,7 @@ def genetic_algorithm_optimize(
         # Selection (tournament selection)
         new_population = []
         for _ in range(population_size):
-            idx1, idx2 = np.random.choice(population_size, 2, replace=False)
+            idx1, idx2 = rng.choice(population_size, 2, replace=False)
             if fitness[idx1] < fitness[idx2]:
                 new_population.append(population[idx1].copy())
             else:
@@ -427,8 +495,8 @@ def genetic_algorithm_optimize(
 
         # Crossover
         for i in range(0, population_size - 1, 2):
-            if np.random.random() < crossover_rate:
-                crossover_point = np.random.randint(1, n_params)
+            if n_params > 1 and rng.random() < crossover_rate:
+                crossover_point = rng.integers(1, n_params)
                 temp = population[i][crossover_point:].copy()
                 population[i][crossover_point:] = population[i + 1][crossover_point:]
                 population[i + 1][crossover_point:] = temp
@@ -436,8 +504,17 @@ def genetic_algorithm_optimize(
         # Mutation
         for individual in population:
             for j in range(n_params):
-                if np.random.random() < mutation_rate:
-                    individual[j] = np.random.uniform(bounds[j][0], bounds[j][1])
+                if rng.random() < mutation_rate:
+                    individual[j] = rng.uniform(bounds[j][0], bounds[j][1])
+
+        progress.complete_iteration()
+        if user_callback is not None:
+            user_callback(best_params.copy())
+
+    if best_params is None:
+        raise RuntimeError(
+            "genetic algorithm completed without evaluating a population"
+        )
 
     return (
         best_params,
@@ -461,6 +538,7 @@ def particle_swarm_optimize(
     w: float = 0.9,
     c1: float = 2.0,
     c2: float = 2.0,
+    seed: RandomSeed = None,
     **kwargs,
 ) -> tuple[np.ndarray, float, dict]:
     """
@@ -477,7 +555,8 @@ def particle_swarm_optimize(
         w: Inertia weight (0.4-0.9 typical)
         c1: Cognitive parameter - attraction to personal best (2.0 typical)
         c2: Social parameter - attraction to global best (2.0 typical)
-        **kwargs: Additional arguments
+        seed: Seed or generator used by the algorithm
+        **kwargs: Additional arguments, including an optional callback
 
     Returns:
         tuple containing:
@@ -493,15 +572,19 @@ def particle_swarm_optimize(
 
     # Use the history tracker
     tracker = HistoryTracker()
+    rng = _get_rng(seed)
+    user_callback = kwargs.get("callback")
+    progress = kwargs.get("progress", OptimizationProgress())
+    progress.completed_iterations = 0
 
     # Initialize particles
-    particles = np.random.uniform(
+    particles = rng.uniform(
         low=[b[0] for b in bounds],
         high=[b[1] for b in bounds],
         size=(n_particles, n_params),
     )
 
-    velocities = np.random.uniform(-1, 1, size=(n_particles, n_params))
+    velocities = rng.uniform(-1, 1, size=(n_particles, n_params))
 
     # Evaluate initial particles
     personal_best = particles.copy()
@@ -521,7 +604,7 @@ def particle_swarm_optimize(
     for iteration in range(maxiter):
         for i in range(n_particles):
             # Update velocity
-            r1, r2 = np.random.random(), np.random.random()
+            r1, r2 = rng.random(), rng.random()
             velocities[i] = (
                 w * velocities[i]
                 + c1 * r1 * (personal_best[i] - particles[i])
@@ -552,6 +635,9 @@ def particle_swarm_optimize(
         # Track global best at end of each iteration
         tracker.energy_history.append(float(global_best_fitness))
         tracker.param_history.append(global_best.copy())
+        progress.complete_iteration()
+        if user_callback is not None:
+            user_callback(global_best.copy())
 
     return (
         global_best,
@@ -580,7 +666,9 @@ def powell_optimize(
     """
     tracker = HistoryTracker()
     wrapped_objective = tracker.create_wrapped_objective(objective)
-    callback_wrapper = tracker.create_callback(kwargs.get("callback"))
+    callback_wrapper = tracker.create_callback(
+        kwargs.get("callback"), kwargs.get("progress")
+    )
 
     result = minimize(
         wrapped_objective,

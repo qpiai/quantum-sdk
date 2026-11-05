@@ -101,4 +101,11 @@ def heisenberg_hva_ansatz(lattice: Lattice, layers: int = 1) -> Circuit:
         for u, v in edges:
             _add_pauli_zz_rotation(circuit, u, v)
 
+    # Every RZ introduced above is an adjustable HVA angle. Declare this
+    # explicitly; numeric placeholders alone are fixed in the solver API.
+    parameter_index = 0
+    for operation in circuit.icr.evolve:
+        if operation.operation_type == OperationType.N_QUBIT_PARAMETRIC:
+            operation.parameter_index = parameter_index
+            parameter_index += 1
     return circuit
