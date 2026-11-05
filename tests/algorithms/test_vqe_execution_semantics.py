@@ -12,6 +12,8 @@ from qpiai_quantum.algorithms.opt.solvers.vqe import VQESolver
 from qpiai_quantum.circuit import Circuit
 from qpiai_quantum.algorithms.opt import parameterize
 
+pytestmark = pytest.mark.usefixtures("backend_devices")
+
 
 class Hamiltonian:
     def __init__(self, terms: list[tuple[list[tuple[int, str]], float]]) -> None:
