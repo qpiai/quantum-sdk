@@ -1,4 +1,6 @@
 import json
+from typing import Any
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -141,3 +143,62 @@ def test_decoders_reject_invalid_amplitudes(value):
 def test_density_matrix_decoder_rejects_rectangular_matrix():
     with pytest.raises(InvalidResponseError, match="square"):
         decode_density_matrix([[1.0, 0.0]])
+
+
+@pytest.mark.parametrize(
+    "envelope",
+    ["top", "data", "results_data", "legacy", "list", "histogram", "nested_histogram"],
+)
+def test_get_job_results_preserves_counts_and_nested_artifacts(
+    monkeypatch: pytest.MonkeyPatch, envelope: str
+) -> None:
+    counts = {"001": 7, "110": 25}
+    vector = np.zeros(8, dtype=complex)
+    vector[1] = (7 / 32) ** 0.5
+    vector[6] = (25 / 32) ** 0.5
+    density = np.outer(vector, vector.conjugate())
+    data: dict[str, Any] = {
+        "counts": counts,
+        "statevector": [_complex_pair(value) for value in vector],
+        "density_matrix": [[_complex_pair(value) for value in row] for row in density],
+        "probabilities": {"001": 7 / 32, "110": 25 / 32},
+    }
+    payload = data
+    if envelope == "data":
+        payload = {"data": data}
+    elif envelope == "results_data":
+        payload = {"results": {"data": data}}
+    elif envelope == "legacy":
+        payload = {"results": {"results": data}}
+    elif envelope == "list":
+        payload = {"results": [{"data": data}]}
+    elif envelope == "histogram":
+        data["histogram"] = data.pop("counts")
+
+    elif envelope == "nested_histogram":
+        data["histogram"] = {
+            key: str(value) for key, value in data.pop("counts").items()
+        }
+        payload = {"data": data}
+
+    manager = JobManager()
+    job = {
+        "id": "stored-json-job",
+        "status": "Success",
+        "method": "tensor_network",
+        "server_response": json.dumps(payload),
+    }
+    monkeypatch.setattr(manager, "get_job_status", lambda job_id: job)
+    monkeypatch.setattr(manager, "_get_auth_header", lambda: {})
+    monkeypatch.setattr(
+        "requests.get",
+        lambda *args, **kwargs: SimpleNamespace(
+            raise_for_status=lambda: None, json=lambda: job
+        ),
+    )
+    result = manager.get_job_results("stored-json-job")
+    assert result.counts == counts
+    assert result.shots == 32
+    assert result.probabilities == {"001": 7 / 32, "110": 25 / 32}
+    np.testing.assert_allclose(np.asarray(result.statevector).reshape(-1), vector)
+    np.testing.assert_allclose(np.asarray(result.density_matrix), density)

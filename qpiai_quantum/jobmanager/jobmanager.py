@@ -24,7 +24,11 @@ from .exceptions import (
     JobSubmissionError,
 )
 from .job_result import JobResult
-from .result_decoding import decode_density_matrix, decode_statevector
+from .result_decoding import (
+    decode_density_matrix,
+    decode_statevector,
+    parse_circuit_response,
+)
 from .result_contract import ContractValidationError, validate_binary_manifest
 from .sse_handler import SSEResultHandler, SSE_AVAILABLE
 
@@ -1042,28 +1046,15 @@ class JobManager:
                     f"Resolved results data must be a dictionary, got {type(results_data).__name__}"
                 )
 
-            # Extract measurement counts with fallback for different response formats
-            counts = results_data.get("counts", results_data.get("histogram", {}))
-
-            # Handle new nested structure: results.data.counts
-            if not counts and "results" in results_data:
-                results_section = results_data["results"]
-                if "data" in results_section:
-                    data_section = results_section["data"]
-                    counts = data_section.get(
-                        "counts", data_section.get("histogram", {})
-                    )
-
-            statevector = decode_statevector(results_data.get("statevector"))
+            parsed = parse_circuit_response(results_data)
+            counts = parsed["counts"] or {}
 
             execution_result = JobResult(
                 name=results_data.get("name", f"Job_{job_id}"),
                 counts=counts,
-                statevector=statevector,
-                probabilities=results_data.get("probabilities"),
-                density_matrix=decode_density_matrix(
-                    results_data.get("density_matrix")
-                ),
+                statevector=parsed["statevector"],
+                probabilities=parsed["probabilities"],
+                density_matrix=parsed["density_matrix"],
                 message="Job completed successfully",
                 execution_time=job_data.get("execution_time_ms", 0) / 1000.0
                 if job_data.get("execution_time_ms")
