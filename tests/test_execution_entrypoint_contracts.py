@@ -107,9 +107,7 @@ def test_direct_stored_artifact_download_receives_job_context(
         response = "s3://results/" + pointer["key"]
     record = {"status": "Success", "server_response": response}
 
-    def download(
-        s3_path: str, manifest: dict | None, job_id: str, result_type: str | None = None
-    ) -> dict:
+    def download(s3_path: str, manifest: dict | None, job_id: str) -> dict:
         assert job_id == "stored-job"
         assert s3_path == "s3://results/" + pointer["key"]
         if binary:

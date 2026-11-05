@@ -113,7 +113,7 @@ def test_resolve_nested_worker_pointer_keeps_manifest(_mock_auth, mock_post, moc
 @patch("requests.get")
 @patch("requests.post")
 @patch.object(JobManager, "_get_auth_header", return_value={"X-Secret-Token": "key"})
-def test_resolve_binary_pointer_preserves_legacy_result_type_format(
+def test_resolve_binary_pointer_rejects_legacy_result_type_format(
     _mock_auth, mock_post, mock_get
 ):
     mock_post.return_value.json.return_value = {
@@ -130,10 +130,22 @@ def test_resolve_binary_pointer_preserves_legacy_result_type_format(
         "execution_time": 0.1,
     }
 
-    resolved = JobManager()._resolve_job_response_data(legacy_pointer)
-    assert resolved["statevector"] == [[1 + 0j], [0j]]
-    assert resolved["counts"] == {"0": 1024}
-    assert resolved["execution_time"] == 0.1
+    with pytest.raises(InvalidResponseError, match="Unsupported binary result format"):
+        JobManager()._resolve_job_response_data(legacy_pointer)
+
+
+@patch("requests.get")
+@patch("requests.post")
+@patch.object(JobManager, "_get_auth_header", return_value={"X-Secret-Token": "key"})
+def test_binary_download_requires_manifest(_mock_auth, mock_post, mock_get):
+    mock_post.return_value.json.return_value = {
+        "presigned_url": "https://s3.example/result.bin"
+    }
+    mock_get.return_value.headers = {"Content-Type": "application/octet-stream"}
+    mock_get.return_value.content = np.asarray([1.0, 0.0], dtype="<c16").tobytes()
+
+    with pytest.raises(InvalidResponseError, match="missing its artifact manifest"):
+        JobManager()._resolve_job_response_data("s3://test-bucket/result.bin")
 
 
 def test_binary_manifest_rejects_noncontiguous_artifact_ranges():

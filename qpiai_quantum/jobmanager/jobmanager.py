@@ -1048,7 +1048,6 @@ class JobManager:
     def _download_s3_result_via_backend(
         self,
         s3_path: str,
-        result_type: str | None = None,
         manifest: dict[str, Any] | None = None,
         job_id: str | None = None,
     ) -> dict[str, Any]:
@@ -1100,30 +1099,12 @@ class JobManager:
             or "application/x-qpiai-binary" in content_type
             or s3_path.endswith(".bin")
         ):
-            import numpy as np
-
-            raw_bytes = file_response.content
-            if manifest is not None and (
-                "format" in manifest or "artifacts" in manifest
-            ):
-                return self._decode_binary_artifact_payload(raw_bytes, manifest)
-            complex_arr = np.frombuffer(raw_bytes, dtype=np.complex128)
-
-            if result_type == "density_matrix" or "density_matrix" in s3_path:
-                dim = int(np.sqrt(len(complex_arr)))
-                dm_matrix = complex_arr.reshape(dim, dim).tolist()
-                return {
-                    "results": {"data": {"density_matrix": dm_matrix}},
-                    "density_matrix": dm_matrix,
-                    "message": "Job completed successfully",
-                }
-
-            statevector = complex_arr.reshape(-1, 1).tolist()
-            return {
-                "results": {"data": {"statevector": statevector}},
-                "statevector": statevector,
-                "message": "Job completed successfully",
-            }
+            if manifest is None:
+                raise InvalidResponseError(
+                    "The binary job result is missing its artifact manifest. "
+                    "Retry the job or contact support if this persists."
+                )
+            return self._decode_binary_artifact_payload(file_response.content, manifest)
 
         try:
             return file_response.json()
@@ -1151,21 +1132,11 @@ class JobManager:
         s3_reference = self._extract_s3_result_reference(parsed_data)
         if s3_reference:
             s3_path, manifest = s3_reference
-            downloaded = self._download_s3_result_via_backend(
+            return self._download_s3_result_via_backend(
                 s3_path,
                 manifest=manifest,
                 job_id=job_id,
-                result_type=manifest.get("result_type") if manifest else None,
             )
-            if manifest and "format" not in manifest and "artifacts" not in manifest:
-                if "counts" in manifest:
-                    downloaded.setdefault("counts", manifest["counts"])
-                    downloaded.setdefault("results", {}).setdefault(
-                        "data", {}
-                    ).setdefault("counts", manifest["counts"])
-                if "execution_time" in manifest:
-                    downloaded.setdefault("execution_time", manifest["execution_time"])
-            return downloaded
 
         return parsed_data
 
