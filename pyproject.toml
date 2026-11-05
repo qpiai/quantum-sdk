@@ -3,7 +3,7 @@ name = "qpiai-quantum"
 version = "0.7.5"
 description = "A comprehensive Python-based quantum computing framework providing modular implementations of quantum algorithms and optimization solvers"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {text = "Apache-2.0"}
 authors = [
     {name = "QpiAI", email = "support@qcloud.qpiai.tech"}
@@ -27,7 +27,6 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Physics",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
